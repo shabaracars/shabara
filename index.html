@@ -480,6 +480,56 @@
     font-size:16px; color:var(--muted);
   }
   .merchant-item-thumb.has-img{cursor:zoom-in;}
+
+  /* ===== التبويبات على الموبايل: صفّان بدل شريط أفقي مقطوع ===== */
+  @media screen and (max-width:720px){
+    nav#mainNav{flex-wrap:wrap; overflow-x:visible; gap:0; padding:4px 6px 0; position:static;}
+    nav#mainNav button{
+      flex:1 0 25%; max-width:25%; box-sizing:border-box;
+      white-space:normal; text-align:center; line-height:1.3;
+      font-size:12px; padding:9px 3px; min-height:46px;
+      display:flex; align-items:center; justify-content:center; gap:3px; flex-wrap:wrap;
+    }
+  }
+  /* ===== الإيجارات اليومية: كروت على الموبايل ===== */
+  @media screen and (max-width:720px){
+    .ds-card{padding:0 !important; overflow:visible !important; background:transparent; box-shadow:none; border:0;}
+    .ds-table, .ds-table tbody{display:block; width:100%;}
+    .ds-table thead{display:none;}
+    .ds-table tr{
+      display:grid; grid-template-columns:72px 1fr; column-gap:12px; row-gap:6px;
+      grid-template-areas:"img car" "img sku" "img client" "period period" "qty qty" "total total" "status status" "del del";
+      background:var(--paper,#fff); border:1px solid var(--line); border-radius:14px;
+      padding:12px; margin-bottom:12px; box-shadow:0 1px 6px rgba(0,0,0,.05);
+    }
+    .ds-table td{display:block; padding:0; border:0; min-width:0; text-align:start;}
+    .ds-table td:empty{display:none;}
+    .ds-table td.c-img{grid-area:img; align-self:start;}
+    .ds-table td.c-img .ds-thumb{width:72px; height:72px; border-radius:10px;}
+    .ds-table td.c-car{grid-area:car; font-weight:800; font-size:16px; align-self:end;}
+    .ds-table td.c-sku{grid-area:sku; font-size:13px; color:var(--muted);}
+    .ds-table td.c-client{grid-area:client; font-size:13px; color:var(--muted);}
+    .ds-table td.c-sku::before, .ds-table td.c-client::before{content:attr(data-label)": "; font-weight:600;}
+    .ds-table td.c-period{grid-area:period;} .ds-table td.c-qty{grid-area:qty;} .ds-table td.c-total{grid-area:total;}
+    .ds-table td.c-period, .ds-table td.c-qty, .ds-table td.c-total{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      border-top:1px dashed var(--line); padding-top:8px; font-size:14px;
+    }
+    .ds-table td.c-period::before, .ds-table td.c-qty::before, .ds-table td.c-total::before{content:attr(data-label); color:var(--muted); font-weight:600; font-size:13px; flex-shrink:0;}
+    .ds-table td.c-period{font-weight:700; text-align:end; font-size:13px;}
+    .ds-table td.c-total{font-size:16px;}
+    .ds-table td.c-status{
+      grid-area:status; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+      border-top:1px dashed var(--line); padding-top:10px;
+    }
+    .ds-table td.c-status > *{margin:0 !important;}
+    .ds-table td.c-status > div{width:100%;}
+    .ds-table td.c-status > div[style*="display:flex"]{display:flex;}
+    .ds-table td.c-status .btn{flex:1; min-height:40px; font-size:14px;}
+    .ds-table td.c-status > .btn{width:100%; flex:1 1 100%;}
+    .ds-table td.c-del{grid-area:del;}
+    .ds-table td.c-del .btn{width:100%; min-height:38px;}
+  }
   @media(max-width:560px){
     .mi-row2{ grid-template-columns:1fr 1fr; }
     .mi-subtotal-wrap{ grid-column:1/3; flex-direction:row; justify-content:space-between; align-items:center; border-top:1px dashed var(--line); padding-top:8px; margin-top:4px; }
@@ -3531,16 +3581,15 @@ function renderDailySales(){
         : '';
       return `
       <tr>
-        <td>${escapeHtml(r.merchantName||'-')}</td>
-        <td>${escapeHtml(r.itemName)}</td>
-        <td>${escapeHtml(r.sku||'-')}</td>
-        
-        <td class="money">${fmt(r.qty)}</td>
-        <td>${r.endDate?fmtDate(r.date)+' ← '+fmtDate(r.endDate)+' ('+r.days+' يوم)':'-'}</td>
-        <td class="money">${fmt(r.total||0)}</td>
-        <td>${statusCell(r, safeItemName)}</td>
-        <td>${thumbCell}</td>
-        <td>${deleteCell}</td>
+        <td class="c-client" data-label="العميل">${escapeHtml(r.merchantName||'-')}</td>
+        <td class="c-car">${escapeHtml(r.itemName)}</td>
+        <td class="c-sku" data-label="رقم اللوحة">${escapeHtml(r.sku||'-')}</td>
+        <td class="money c-qty" data-label="الكمية">${fmt(r.qty)}</td>
+        <td class="c-period" data-label="الفترة">${r.endDate?fmtDate(r.date)+' ← '+fmtDate(r.endDate)+' ('+r.days+' يوم)':'-'}</td>
+        <td class="money c-total" data-label="الإجمالي">${fmt(r.total||0)}</td>
+        <td class="c-status">${statusCell(r, safeItemName)}</td>
+        <td class="c-img">${thumbCell}</td>
+        <td class="c-del">${deleteCell}</td>
       </tr>`;
     }).join('');
     return `
@@ -3548,8 +3597,8 @@ function renderDailySales(){
       <h2 style="font-size:14px;">📅 ${group.date ? fmtDate(group.date) : 'بدون تاريخ'}</h2>
       <span class="page-sub" style="margin:0;">${fmt(dayTotalQty)} سيارة (${group.items.length} عملية)</span>
     </div>
-    <div class="card" style="overflow-x:auto; margin-bottom:14px;">
-      <table>
+    <div class="card ds-card" style="overflow-x:auto; margin-bottom:14px;">
+      <table class="ds-table">
         <thead><tr><th>العميل</th><th>السيارة</th><th>رقم اللوحة</th><th>الكمية</th><th>الفترة</th><th>الإجمالي</th><th>الحالة</th><th>الصورة</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>

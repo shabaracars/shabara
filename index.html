@@ -1247,6 +1247,57 @@ setTimeout(function(){
 </div>
 
 <!-- ===== BACKUP / RESTORE MODAL ===== -->
+<!-- ===== مودال الصيانة (تواريخ سهلة) ===== -->
+<div class="overlay" id="maintModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="maintTitle">🔧 صيانة السيارة</h3>
+      <button class="icon-btn" onclick="closeModal('maintModalOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>من تاريخ (الخروج من الخدمة)</label><input id="maintStart" type="date" onchange="maintStartChanged()"></div>
+      <div class="field"><label>إلى تاريخ (العودة للخدمة)</label><input id="maintEnd" type="date" oninput="maintUpdateHint()"></div>
+      <div class="field"><label>مدة سريعة</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="maintQuick(1)">يوم</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="maintQuick(3)">3 أيام</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="maintQuick(7)">أسبوع</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="maintQuick(14)">أسبوعان</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="maintQuick(30)">شهر</button>
+        </div>
+      </div>
+      <div id="maintHint" class="page-sub" style="margin-top:8px;"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gold" onclick="saveMaintenance()">💾 حفظ</button>
+      <button class="btn btn-outline" onclick="closeModal('maintModalOverlay')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== مودال الدفعة المقدمة للحجز ===== -->
+<div class="overlay" id="orderPayModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="orderPayTitle">💵 دفعة مقدمة للحجز</h3>
+      <button class="icon-btn" onclick="closeModal('orderPayModalOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="orderPaySummary" style="background:var(--cream);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:14px;"></div>
+      <div class="field"><label>المبلغ المدفوع الآن (جنيه)</label><input id="orderPayAmount" type="number" inputmode="decimal" min="0" step="any"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="orderPayQuick(0.5)">نصف المتبقي</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="orderPayQuick(1)">كامل المتبقي</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gold" onclick="saveOrderPayment()">💾 تسجيل الدفعة</button>
+      <button class="btn btn-outline" onclick="closeModal('orderPayModalOverlay')">إلغاء</button>
+      <button class="btn btn-danger btn-sm" id="orderPayResetBtn" style="margin-inline-start:auto;display:none;" onclick="resetOrderPayment()">تصفير المدفوع</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="backupFileInput" accept="application/json,.json" style="display:none;" onchange="handleImportBackupFile(event)">
 <div class="overlay" id="backupModalOverlay">
   <div class="modal">
@@ -3016,31 +3067,120 @@ function waRentalMsg(id){
     : `مرحباً ${r.merchantName||''}، نذكّرك بموعد إرجاع السيارة ${r.itemName} بتاريخ ${fmtDate(r.endDate)}. شكراً لاختيارك لنا.`;
   window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
 }
+let _maint=null;
 function addMaintenance(itemId,name){
-  const ok=d=>/^\d{4}-\d{2}-\d{2}$/.test(d||'');
-  const s=prompt('بداية الصيانة / الخروج من الخدمة (YYYY-MM-DD)',localToday()); if(!ok(s)) return;
-  const e=prompt('نهاية الصيانة (YYYY-MM-DD)',nextDay(s)); if(!ok(e)||e<s){ showToast('تاريخ غير صحيح'); return; }
+  _maint={itemId,name};
+  document.getElementById('maintTitle').textContent='🔧 صيانة: '+(name||'');
+  const t=localToday();
+  document.getElementById('maintStart').value=t;
+  document.getElementById('maintEnd').value=nextDay(t);
+  maintUpdateHint();
+  document.getElementById('maintModalOverlay').classList.add('active');
+}
+function maintStartChanged(){
+  const s=document.getElementById('maintStart').value, eEl=document.getElementById('maintEnd');
+  if(s && (!eEl.value || eEl.value<s)) eEl.value=nextDay(s);
+  maintUpdateHint();
+}
+function maintQuick(n){
+  const s=document.getElementById('maintStart').value||localToday();
+  document.getElementById('maintStart').value=s;
+  const d=new Date(s+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n);
+  document.getElementById('maintEnd').value=d.toISOString().slice(0,10);
+  maintUpdateHint();
+}
+function maintUpdateHint(){
+  const s=document.getElementById('maintStart').value, e=document.getElementById('maintEnd').value, h=document.getElementById('maintHint');
+  h.textContent = (s&&e&&e>=s) ? `المدة: ${rentalDays(s,e)} يوم — من ${fmtDate(s)} إلى ${fmtDate(e)}` : '';
+}
+function saveMaintenance(){
+  if(!_maint) return;
+  const s=document.getElementById('maintStart').value, e=document.getElementById('maintEnd').value;
+  if(!s||!e||e<s){ showToast('تاريخ غير صحيح'); return; }
+  const {itemId,name}=_maint;
   const car=items.find(i=>i.id===itemId); if(!car) return;
   freshAvailability(car,s,e).then(av=>{
     if(av<1){ showToast('السيارة محجوزة في هذه الفترة — لا يمكن إدخالها للصيانة'); return; }
-    return db.collection('rentals').add({date:s,endDate:e,days:rentalDays(s,e),itemId,itemName:name,sku:car.sku||'',color:'',qty:1,price:0,total:0,paid:0,returned:false,merchantName:'🔧 صيانة / خارج الخدمة',merchantId:'',sourceType:'maintenance',createdAt:FVX.serverTimestamp()}).then(()=>showToast('تم حجز السيارة للصيانة'));
+    return db.collection('rentals').add({date:s,endDate:e,days:rentalDays(s,e),itemId,itemName:name,sku:car.sku||'',color:'',qty:1,price:0,total:0,paid:0,returned:false,merchantName:'🔧 صيانة / خارج الخدمة',merchantId:'',sourceType:'maintenance',createdAt:FVX.serverTimestamp()}).then(()=>{ closeModal('maintModalOverlay'); showToast('تم حجز السيارة للصيانة'); });
   }).catch(err=>showToast('خطأ: '+err.message));
 }
-function printContract(id){
-  const r=saleEntries.find(x=>x.id===id); if(!r) return;
-  const p=merchantProfiles.find(x=>x.id===r.merchantId)||{}, car=items.find(i=>i.id===r.itemId)||{};
-  const total=Number(r.total)||0, paid=Number(r.paid)||0, E=escapeHtml;
+function openContract(d){
+  const E=escapeHtml, total=Number(d.total)||0, paid=Number(d.paid)||0;
   const w=window.open('','_blank'); if(!w){ showToast('اسمح بالنوافذ المنبثقة لطباعة العقد'); return; }
+  const cars=d.cars||[];
+  const carRows = cars.length===1
+    ? `<tr><td>السيارة</td><td>${E(cars[0].name||'')}</td></tr><tr><td>رقم اللوحة</td><td>${E(cars[0].sku||'')}</td></tr>`
+    : cars.map((c,i)=>`<tr><td>السيارة ${i+1}</td><td>${E(c.name||'')} — رقم اللوحة: ${E(c.sku||'-')}</td></tr>`).join('');
+  const priceRows = cars.length===1
+    ? `<tr><td>السعر اليومي</td><td>${fmt(cars[0].price)} جنيه</td></tr>`
+    : cars.map((c,i)=>`<tr><td>السعر اليومي (${i+1})</td><td>${fmt(c.price)} جنيه</td></tr>`).join('');
   w.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>عقد إيجار سيارة</title><style>body{font-family:Tahoma,Arial,sans-serif;padding:30px;line-height:1.9}h1{text-align:center}table{border-collapse:collapse;width:100%}td{padding:6px 10px;border:1px solid #999}td:first-child{background:#f2f2f2;width:30%}.sig{display:flex;justify-content:space-between;margin-top:70px}</style></head><body>
-  <h1>عقد إيجار سيارة</h1><p>تاريخ العقد: ${fmtDate(r.date)}</p>
-  <table><tr><td>المستأجر</td><td>${E(r.merchantName||p.name||'')}</td></tr><tr><td>الهاتف</td><td>${E(r.merchantPhone||p.phone||'')}</td></tr>
-  <tr><td>السيارة</td><td>${E(r.itemName||'')}</td></tr><tr><td>رقم اللوحة</td><td>${E(r.sku||car.sku||'')}</td></tr>
-  <tr><td>فترة الإيجار</td><td>من ${fmtDate(r.date)} إلى ${fmtDate(r.endDate)} (${r.days||1} يوم)</td></tr>
-  <tr><td>السعر اليومي</td><td>${fmt(r.price)} جنيه</td></tr><tr><td>الإجمالي</td><td>${fmt(total)} جنيه</td></tr>
+  <h1>عقد إيجار سيارة</h1><p>تاريخ العقد: ${fmtDate(d.date)}</p>
+  <table><tr><td>المستأجر</td><td>${E(d.name||'')}</td></tr><tr><td>الهاتف</td><td>${E(d.phone||'')}</td></tr>
+  ${carRows}
+  <tr><td>فترة الإيجار</td><td>من ${fmtDate(d.start)} إلى ${fmtDate(d.end)} (${d.days||1} يوم)</td></tr>
+  ${priceRows}<tr><td>الإجمالي</td><td>${fmt(total)} جنيه</td></tr>
   <tr><td>المدفوع / المتبقي</td><td>${fmt(paid)} / ${fmt(total-paid)} جنيه</td></tr></table>
   <h3>الشروط</h3><ol><li>يلتزم المستأجر بإعادة السيارة في الموعد المحدد وبالحالة التي استلمها بها.</li><li>يُحتسب عن كل يوم تأخير مبلغ يساوي سعر الإيجار اليومي.</li><li>المستأجر مسؤول عن المخالفات المرورية والأضرار خلال فترة الإيجار.</li><li>لا يجوز تأجير السيارة من الباطن أو استخدامها خارج الغرض المتفق عليه.</li></ol>
   <div class="sig"><div>توقيع المؤجر: ____________</div><div>توقيع المستأجر: ____________</div></div></body></html>`);
   w.document.close(); w.focus(); setTimeout(()=>w.print(),300);
+}
+function printContract(id){
+  const r=saleEntries.find(x=>x.id===id); if(!r) return;
+  const p=merchantProfiles.find(x=>x.id===r.merchantId)||{}, car=items.find(i=>i.id===r.itemId)||{};
+  openContract({date:r.date, name:r.merchantName||p.name||'', phone:r.merchantPhone||p.phone||'',
+    cars:[{name:r.itemName||'', sku:r.sku||car.sku||'', price:r.price}],
+    start:r.date, end:r.endDate, days:r.days, total:r.total, paid:r.paid});
+}
+function orderTotalOf(order){
+  if(order.total!==undefined && order.total!==null && order.total!=='') return Number(order.total)||0;
+  const days=Number(order.days)||1;
+  return (order.items||[]).reduce((s,it)=> s+(Number(it.qty)||0)*(Number(it.price)||0)*days, 0);
+}
+function printOrderContract(orderId){
+  const order=orders.find(o=>o.id===orderId); if(!order) return;
+  const prof=merchantProfiles.find(p=>{ const ph=normPhoneDigits(order.merchantPhone); return ph && normPhoneDigits(p.phone)===ph; })||{};
+  openContract({date:order.startDate, name:order.merchantName||prof.name||'', phone:order.merchantPhone||prof.phone||'',
+    cars:(order.items||[]).map(it=>{ const car=items.find(i=>i.id===it.itemId)||{}; return {name:it.itemName||car.name||'', sku:it.sku||car.sku||'', price:it.price}; }),
+    start:order.startDate, end:order.endDate, days:order.days, total:orderTotalOf(order), paid:order.paid});
+}
+
+/* ===== الدفعة المقدمة على الحجز ===== */
+let _orderPayId=null;
+function openOrderPayment(orderId){
+  const order=orders.find(o=>o.id===orderId); if(!order) return;
+  _orderPayId=orderId;
+  const total=orderTotalOf(order), paid=Number(order.paid)||0;
+  document.getElementById('orderPayTitle').textContent='💵 دفعة مقدمة: '+(order.merchantName||'');
+  document.getElementById('orderPaySummary').innerHTML=
+    `<div style="display:flex;justify-content:space-between;"><span>الإجمالي المستحق</span><b>${fmt(total)} جنيه</b></div>
+     <div style="display:flex;justify-content:space-between;"><span>المدفوع حتى الآن</span><b>${fmt(paid)} جنيه</b></div>
+     <div style="display:flex;justify-content:space-between;color:var(--red);"><span>المتبقي</span><b>${fmt(Math.max(0,total-paid))} جنيه</b></div>`;
+  document.getElementById('orderPayAmount').value='';
+  document.getElementById('orderPayResetBtn').style.display = paid>0 ? '' : 'none';
+  document.getElementById('orderPayModalOverlay').classList.add('active');
+}
+function orderPayQuick(f){
+  const order=orders.find(o=>o.id===_orderPayId); if(!order) return;
+  const rest=Math.max(0, orderTotalOf(order)-(Number(order.paid)||0));
+  document.getElementById('orderPayAmount').value = Math.round(rest*f*100)/100;
+}
+function saveOrderPayment(){
+  const order=orders.find(o=>o.id===_orderPayId); if(!order) return;
+  const v=Number(document.getElementById('orderPayAmount').value);
+  const total=orderTotalOf(order), paid=Number(order.paid)||0;
+  if(!v||v<=0){ showToast('أدخل مبلغاً صحيحاً'); return; }
+  if(paid+v>total){ showToast('المبلغ أكبر من المتبقي ('+fmt(total-paid)+')'); return; }
+  db.collection('bookingRequests').doc(_orderPayId).update({paid:paid+v, paidUpdatedAt:FVX.serverTimestamp()})
+    .then(()=>{ closeModal('orderPayModalOverlay'); showToast('تم تسجيل الدفعة المقدمة'); })
+    .catch(e=>showToast('خطأ: '+e.message));
+}
+function resetOrderPayment(){
+  if(!_orderPayId) return;
+  if(!confirm('تصفير المبلغ المدفوع لهذا الحجز؟')) return;
+  db.collection('bookingRequests').doc(_orderPayId).update({paid:0, paidUpdatedAt:FVX.serverTimestamp()})
+    .then(()=>{ closeModal('orderPayModalOverlay'); showToast('تم تصفير المدفوع'); })
+    .catch(e=>showToast('خطأ: '+e.message));
 }
 function renderCarReport(){
   const f=document.getElementById('crFrom'), tt=document.getElementById('crTo'); if(!f||!tt) return;
@@ -3893,6 +4033,11 @@ function renderOrders(){
         <span>الإجمالي الكلي</span>
         <span class="order-total-val">${fmt(order.total)} جنيه</span>
       </div>
+      ${(()=>{ const _t=orderTotalOf(order), _p=Number(order.paid)||0, _r=_t-_p;
+        return (order.status==='cancelled' && !_p) ? '' : `<div class="order-total-row" style="border-top:1px dashed var(--line);margin-top:0;font-size:13px;font-weight:700;">
+          <span>💰 المدفوع مقدماً: ${fmt(_p)} جنيه</span>
+          <span style="color:${_r>0?'var(--red)':'var(--green)'};">${_r>0?'المتبقي: '+fmt(_r)+' جنيه':'✔ مسدّد بالكامل'}</span>
+        </div>`; })()}
       ${order.note ? `<div class="order-note">💬 ملاحظات العميل: ${escapeHtml(order.note)}</div>` : ''}
 
       ${orderConflictHtml(order)}
@@ -3904,6 +4049,12 @@ function renderOrders(){
         ${order.status==='confirmed' ? `
           <button class="btn btn-outline btn-sm" onclick="updateOrderStatus('${order.id}','done')">📦 تم التسليم</button>
           <button class="btn btn-outline btn-sm" onclick="convertOrderToSales('${order.id}')">💾 تحويل لإيجارات</button>
+        ` : ''}
+        ${(order.status==='pending'||order.status==='confirmed') ? `
+          <button class="btn btn-gold btn-sm" onclick="openOrderPayment('${order.id}')">💵 دفعة مقدمة</button>
+        ` : ''}
+        ${order.status!=='cancelled' ? `
+          <button class="btn btn-outline btn-sm" onclick="printOrderContract('${order.id}')">📄 عقد</button>
         ` : ''}
         ${(order.status==='pending'||order.status==='confirmed') ? `
           <button class="btn btn-danger btn-sm" onclick="updateOrderStatus('${order.id}','cancelled')">❌ إلغاء</button>
@@ -3919,7 +4070,8 @@ function renderOrders(){
 
 function updateOrderStatus(orderId, newStatus){
   const labels = {confirmed:'تأكيد الطلب؟', done:'تأكيد التسليم؟', cancelled:'إلغاء الطلب؟'};
-  if(!confirm(labels[newStatus]||'تأكيد؟')) return;
+  const _o=orders.find(o=>o.id===orderId), _pd=Number(_o&&_o.paid)||0;
+  if(!confirm((labels[newStatus]||'تأكيد؟') + (newStatus==='cancelled' && _pd>0 ? `\nتنبيه: يوجد مبلغ مقدم مدفوع ${fmt(_pd)} جنيه — تأكد من ردّه للعميل.` : ''))) return;
   db.collection('bookingRequests').doc(orderId).update({status: newStatus, updatedAt: FVX.serverTimestamp()})
     .then(()=> showToast('تم تحديث حالة الطلب'))
     .catch(e=> showToast('خطأ: '+e.message));
@@ -3972,7 +4124,7 @@ function convertOrderToSales(orderId){
   const s=order.startDate, e=order.endDate;
   if(!s||!e||e<s){ showToast('تواريخ الطلب غير صحيحة'); return; }
   if(_converting.has(orderId)) return;
-  if(!confirm(`تحويل طلب "${order.merchantName}" (${(order.items||[]).length} سيارات) إلى إيجارات؟\nسيُضاف كل سيارة في الطلب كعملية تأجير منفصلة في الإيجارات اليومية.`)) return;
+  if(!confirm(`تحويل طلب "${order.merchantName}" (${(order.items||[]).length} سيارات) إلى إيجارات؟\nسيُضاف كل سيارة في الطلب كعملية تأجير منفصلة في الإيجارات اليومية.${Number(order.paid)>0?'\nوسيُرحَّل المقدم المدفوع ('+fmt(order.paid)+' جنيه) إلى الإيجارات.':''}`)) return;
   _converting.add(orderId);
 
   const need={}, names={};
@@ -4001,15 +4153,20 @@ function convertOrderToSales(orderId){
       batch.set(cref,{name:order.merchantName||'', phone:ph, address:'', notes:'تمت الإضافة تلقائيًا عند تحويل طلب', createdAt:FVX.serverTimestamp()});
     }
 
-    (order.items||[]).forEach(it=>{
+    let depositLeft = Number(order.paid)||0;   // المقدم المدفوع على الحجز يُرحَّل على الإيجارات
+    const _lastIdx = (order.items||[]).length-1;
+    (order.items||[]).forEach((it,_i)=>{
       const car=items.find(i=>i.id===it.itemId);
       const price = car ? (Number(car.price)||0) : (Number(it.price)||0);   // السعر من الأسطول لا من الطلب
       const qty = Number(it.qty)||0;
+      const _rowTotal = qty*price*days;
+      const _rowPaid = (_i===_lastIdx) ? depositLeft : Math.min(depositLeft,_rowTotal);
+      depositLeft = Math.max(0, depositLeft-_rowPaid);
       const ref = db.collection('rentals').doc();
       batch.set(ref, {
         merchantId, merchantName: order.merchantName||'', merchantPhone: order.merchantPhone||'',
         itemId: it.itemId||'', itemName: it.itemName||'', sku: it.sku||'', color: it.color||'',
-        qty, price, date: s, endDate: e, days, total: qty*price*days, returned:false,
+        qty, price, date: s, endDate: e, days, total: _rowTotal, paid: _rowPaid, returned:false,
         createdAt: FVX.serverTimestamp(), sourceType:'order', sourceOrderId: orderId,
       });
       if(it.itemId){

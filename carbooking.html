@@ -703,7 +703,7 @@ function startApp(){
   if(name)  { document.getElementById('merchantName').value=name; document.getElementById('merchantName2').value=name; }
   if(phone) { document.getElementById('merchantPhone').value=phone; document.getElementById('merchantPhone2').value=phone; }
 
-  const t0=new Date(), t1=new Date(Date.now()+864e5), iso=d=>d.toISOString().slice(0,10);
+  const t0=new Date(), t1=new Date(Date.now()+864e5), iso=localISO;
   ['startDate','startDate2'].forEach(i=>{ const e=document.getElementById(i); if(e&&!e.value) e.value=iso(t0); });
   ['endDate','endDate2'].forEach(i=>{ const e=document.getElementById(i); if(e&&!e.value) e.value=iso(t1); });
   listenData();
@@ -715,7 +715,7 @@ function rentDays(){
 }
 function syncDates(el){
   const m={startDate:'startDate2',startDate2:'startDate',endDate:'endDate2',endDate2:'endDate'};
-  document.getElementById(m[el.id]).value=el.value; updateCartUI();
+  document.getElementById(m[el.id]).value=el.value; updateCartUI(); renderProducts();
 }
 
 /* ═══════════════════════════════════════
@@ -858,16 +858,36 @@ function listenData(){
 /* ═══════════════════════════════════════
    STOCK CALCULATION (mirrors inventory-app)
 ═══════════════════════════════════════ */
+
+/* ── التوافر حسب التاريخ: الإيجار يحجز السيارة فقط خلال فترته (الاستلام ← الإرجاع) ── */
+function localISO(d){ const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+function localToday(){ return localISO(new Date()); }
+function nextDay(d){ const x=new Date(d+'T00:00:00Z'); x.setUTCDate(x.getUTCDate()+1); return x.toISOString().slice(0,10); }
+function rentalBlocks(r, range){
+  if(r.returned) return false;            // رجعت للمخزون
+  if(!range || !r.date) return true;      // بدون فترة محددة: السلوك القديم
+  const today=localToday();
+  const rs=r.date; let re=r.endDate||'9999-12-31';
+  if(re<=rs) re=nextDay(rs);
+  if(re<=today) re=nextDay(today);        // انتهت مدتها ولم تُسجَّل كمُرجَعة: ما زالت خارج المخزون
+  const qe = range.e>range.s ? range.e : nextDay(range.s);
+  return rs<qe && re>range.s;             // تداخل الفترتين (يوم الإرجاع نفسه متاح للحجز التالي)
+}
+function selRange(){
+  const a=document.getElementById('startDate')?.value, b=document.getElementById('endDate')?.value;
+  return (a&&b&&b>=a) ? {s:a,e:b} : null;
+}
 function issuedQtyFor(itemId){
-  let sum=0;
-  saleEntries.forEach(s=>{ if(s.itemId===itemId&&!s.returned) sum+=Number(s.qty)||0; });
+  let sum=0; const rg=selRange();
+  saleEntries.forEach(s=>{ if(s.itemId===itemId&&rentalBlocks(s,rg)) sum+=Number(s.qty)||0; });
   merchantTxs.forEach(tx=>{ (tx.items||[]).forEach(it=>{ if(it.itemId===itemId) sum+=Number(it.qty)||0; }); });
   return sum;
 }
-function remainingQtyFor(item){ return (Number(item.stockQty)||0)-issuedQtyFor(item.id); }
+/* كل سيارة بلوحتها = وحدة واحدة فقط */
+function remainingQtyFor(item){ return 1-issuedQtyFor(item.id); }
 function issuedForColor(itemId,color){
   let s=0;
-  saleEntries.forEach(e=>{ if(e.itemId===itemId&&!e.returned&&(e.color||'')===color) s+=Number(e.qty)||0; });
+  const rg=selRange(); saleEntries.forEach(e=>{ if(e.itemId===itemId&&rentalBlocks(e,rg)&&(e.color||'')===color) s+=Number(e.qty)||0; });
   merchantTxs.forEach(tx=>{ (tx.items||[]).forEach(it=>{ if(it.itemId===itemId&&(it.color||'')===color) s+=Number(it.qty)||0; }); });
   return s;
 }
@@ -907,13 +927,20 @@ function renderProducts(){
   });
 
   if(!list.length){
-    container.innerHTML=`<div class="empty-state"><div class="ico">🔍</div><p>${search?'لا توجد نتائج مطابقة':'لا توجد سيارات متاحة حالياً'}</p></div>`;
+    container.innerHTML=`<div class="empty-state"><div class="ico">🔍</div><p>${search?'لا توجد نتائج مطابقة':'لا توجد سيارات متاحة في هذه الفترة'}</p></div>`;
     return;
   }
 
   container.innerHTML = `<div class="products-grid">${list.map(renderCard).join('')}</div>`;
 }
 
+function bookedHtml(item){
+  const today=localToday();
+  const list=saleEntries.filter(r=>r.itemId===item.id&&!r.returned&&r.date&&(r.endDate||'9999')>=today).sort((a,b)=>a.date<b.date?-1:1).slice(0,4);
+  if(!list.length) return '';
+  const f=d=>d?d.slice(5).split('-').reverse().join('/'):'؟';
+  return `<div style="font-size:11.5px;color:var(--muted);margin-top:4px">📅 غير متاحة: ${list.map(r=>(r.sourceType==='maintenance'?'🔧 ':'')+f(r.date)+' ← '+f(r.endDate)).join(' • ')}</div>`;
+}
 function renderCard(item){
   const remaining = remainingQtyFor(item);
   const colors    = hasColorStock(item) ? Object.keys(item.colorStock).filter(c=>remainingForColor(item,c)>0) : [];
@@ -927,9 +954,9 @@ function renderCard(item){
         <span class="color-chip" data-item="${item.id}" data-color="${esc(c)}" onclick="selectColor(this,'${item.id}','${esc(c)}')">
           ${colorSwatch(item,c)}${esc(c)} <small style="color:var(--muted)">(${remainingForColor(item,c)})</small>
         </span>`).join('')}</div>`
-    : `<div class="product-no-colors">متاح • العدد: ${remaining}</div>`;
+    : `<div class="product-no-colors">متاحة للحجز</div>`;
 
-  const low = remaining <= 5;
+  const low = false;
 
   return `
   <div class="product-card ${inCart?'in-cart':''}" id="card_${item.id}">
@@ -939,15 +966,9 @@ function renderCard(item){
       <div class="product-name">${esc(item.name)}</div>
       ${item.sku?`<div class="product-sku">لوحة: ${esc(item.sku)}</div>`:''}
       <div class="product-price">${fmt(item.price)} <span>جنيه / يوم</span></div>
+      ${bookedHtml(item)}
       ${colorChips}
-      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-        <div class="qty-control">
-          <button class="qty-btn" onclick="changeQty('${item.id}',-1)">−</button>
-          <input class="qty-input" type="number" min="1" value="1" id="qty_${item.id}" onchange="validateQty(this,${remaining})">
-          <button class="qty-btn" onclick="changeQty('${item.id}',1)">+</button>
-        </div>
-      </div>
-      <div class="remaining-badge ${low?'low':''}">المتاح: ${remaining} ${low?'⚠️ كمية محدودة':''}</div>
+      <div class="remaining-badge ${low?'low':''}">✅ متاحة في هذه الفترة</div>
       <button class="add-btn" id="addbtn_${item.id}" onclick="addToCart('${item.id}')">+ أضف للحجز</button>
     </div>
   </div>`;
@@ -1027,13 +1048,13 @@ function addToCart(itemId){
 
   // check remaining for color or overall
   const avail = color ? remainingForColor(item,color) : remainingQtyFor(item);
-  if(qty > avail){ toast(`⚠️ الكمية المطلوبة (${qty}) أكبر من المتاح (${avail})`); return; }
+  if(qty > avail){ toast('⚠️ هذه السيارة غير متاحة في الفترة المختارة'); return; }
 
   // merge if same item+color exists
   const existing = cart.find(c=>c.itemId===itemId&&c.color===color);
   if(existing){
     const newQty = existing.qty + qty;
-    if(newQty > avail){ toast(`⚠️ إجمالي الكمية (${newQty}) يتجاوز المتاح`); return; }
+    if(newQty > avail){ toast('⚠️ هذه السيارة مضافة بالفعل للحجز'); return; }
     existing.qty = newQty;
   } else {
     cart.push({itemId, itemName:item.name, sku:item.sku||'', color, qty, price:item.price});
@@ -1082,7 +1103,7 @@ function updateCartUI(){
     <div class="cart-item">
       <div class="cart-item-info">
         <div class="cart-item-name">${esc(c.itemName)}</div>
-        <div class="cart-item-meta">${c.color?'لون: '+esc(c.color)+' · ':''} ${c.qty} × ${fmt(c.price)} جنيه/يوم</div>
+        <div class="cart-item-meta">${c.color?'لون: '+esc(c.color)+' · ':''} ${fmt(c.price)} جنيه/يوم</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
         <span class="cart-item-price">${fmt(c.qty*c.price*Math.max(1,rentDays()))}</span>
@@ -1138,6 +1159,8 @@ function submitOrder(fromDrawer){
   if(!name) { toast('⚠️ من فضلك أدخل اسمك'); return; }
   if(!cart.length){ toast('⚠️ السلة فارغة'); return; }
   if(!rentDays()){ toast('⚠️ اختر تاريخ استلام وإرجاع صحيحين'); return; }
+  const unavailable = cart.find(c=>{ const it=allItems.find(i=>i.id===c.itemId); return !it || c.qty>remainingQtyFor(it); });
+  if(unavailable){ toast('⚠️ "'+unavailable.itemName+'" غير متاحة في الفترة المختارة — عدّل التواريخ أو السلة'); return; }
 
   // save for next time
   localStorage.setItem('mpMerchantName', name);

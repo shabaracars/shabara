@@ -744,6 +744,7 @@
 #splash.hide{opacity:0;pointer-events:none;}
 #splash img{width:160px;max-width:55vw;height:auto;object-fit:contain;animation:splashPop .8s ease both;}
 @keyframes splashPop{from{opacity:0;transform:scale(.8);}to{opacity:1;transform:scale(1);}}
+#itemStockNewField,#itemStockAdjField,#itemStockDisplayField{display:none !important}
 </style>
 </head>
 <body>
@@ -778,6 +779,7 @@ setTimeout(function(){
   <button data-view="items">السيارات</button>
   <button data-view="remaining">السيارات المتاحة</button>
   <button data-view="movements">سجل الحركة</button>
+  <button data-view="carreport">📈 تقرير السيارات</button>
   <button data-view="merchants">العملاء</button>
   <button data-view="orders">📋 الحجوزات <span id="ordersNavBadge" style="display:none;background:#B4432F;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-right:4px;"></span></button>
 </nav>
@@ -960,7 +962,7 @@ setTimeout(function(){
       <div class="form-grid">
         <div class="field">
           <label>تاريخ الاستلام</label>
-          <input id="saleDate" type="date" oninput="updateRentalTotal()">
+          <input id="saleDate" type="date" oninput="updateSaleAvailabilityHint()">
         </div>
         <div class="field">
           <label>العميل</label>
@@ -985,15 +987,14 @@ setTimeout(function(){
           <input id="saleSku" readonly placeholder="يظهر تلقائياً" style="background:var(--cream); cursor:not-allowed;">
         </div>
         <div class="field">
-          <label>الكمية</label>
-          <input id="saleQty" type="number" min="1" value="1" placeholder="الكمية" oninput="updateSaleAvailabilityHint()">
+          <input id="saleQty" type="hidden" value="1"><label style="margin-top:8px;display:block">العربون المدفوع</label><input id="saleDeposit" type="number" min="0" value="0">
           <div id="saleAvailabilityHint" style="font-size:11.5px; margin-top:4px; color:var(--muted);"></div>
         </div>
         <div class="field">
           <label>سعر اليوم (تلقائي)</label>
           <input id="salePrice" readonly placeholder="يظهر تلقائياً" style="background:var(--cream); cursor:not-allowed;">
         </div>
-        <div class="field"><label>تاريخ الإرجاع</label><input id="saleEndDate" type="date" oninput="updateRentalTotal()"></div>
+        <div class="field"><label>تاريخ الإرجاع</label><input id="saleEndDate" type="date" oninput="updateSaleAvailabilityHint()"></div>
         <div class="field"><label>إجمالي الإيجار (تلقائي)</label><input id="saleTotal" readonly style="background:var(--cream); cursor:not-allowed;"></div>
       </div>
       <div style="margin-top:14px; display:flex; gap:10px; align-items:center;">
@@ -1040,6 +1041,11 @@ setTimeout(function(){
   </div>
 
   <!-- ========== MERCHANTS VIEW ========== -->
+  <div id="view-carreport" class="view">
+    <div class="section-head"><h2>📈 تقرير الإشغال والإيراد لكل سيارة</h2></div>
+    <div class="card" style="padding:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><label>من</label><input type="date" id="crFrom" onchange="renderCarReport()"><label>إلى</label><input type="date" id="crTo" onchange="renderCarReport()"></div>
+    <div class="card" style="overflow-x:auto;margin-top:12px" id="carReportBody"></div>
+  </div>
   <div id="view-merchants" class="view">
     <div class="section-head" style="margin-top:0;">
       <div>
@@ -1132,7 +1138,7 @@ setTimeout(function(){
           <datalist id="itemCategoryList"></datalist>
         </div>
         <div class="field">
-          <label>رقم اللوحة (اختياري)</label>
+          <label>رقم اللوحة (مطلوب — لكل سيارة لوحة فريدة)</label>
           <input id="itemSku" placeholder="مثال: ABC-1234">
         </div>
         <div class="field" style="display:none;">
@@ -1463,6 +1469,7 @@ function switchView(name){
   if(name==='dashboard') renderDashboard();
   if(name==='remaining') renderRemainingStock();
   if(name==='movements') renderMovements();
+  if(name==='carreport') renderCarReport();
   if(name==='dailysales'){
     populateSaleMerchantSelect();
     populateSaleItemSelect();
@@ -1499,8 +1506,10 @@ function getAlertThreshold(item){
   if(t===null || t===undefined || t==='') return Math.max(2, Math.round((Number(item.stockQty)||0)*0.1));
   return Number(t);
 }
-function getLowStockItems(){
-  return items.filter(i=> !i.archived && remainingQtyFor(i) <= getAlertThreshold(i));
+function getLowStockItems(){ return []; }   // لا معنى لنفاد المخزون: كل سيارة وحدة واحدة
+function getOverdueRentals(){
+  const today=localToday();
+  return saleEntries.filter(r=> !r.returned && r.endDate && r.endDate<=today && r.sourceType!=='maintenance');
 }
 function isOverdue(tx){ return false; } // legacy stub
 function isDueToday(tx){ return false; } // legacy stub
@@ -1511,7 +1520,7 @@ function updateNotifications(){
   const panel = document.getElementById('notifPanel');
   if(!badge || !panel) return;
 
-  const low = getLowStockItems();
+  const low = getOverdueRentals();
   const count = low.length;
 
   badge.textContent = count;
@@ -1523,8 +1532,8 @@ function updateNotifications(){
   }
   let html = '';
   if(low.length){
-    html += `<div class="notif-section-title">📦 سيارات قاربت على النفاد</div>`;
-    html += low.map(i=>`<div class="notif-item" onclick="switchView('remaining'); closeNotifPanel();">${escapeHtml(i.name)} — متبقي ${fmt(remainingQtyFor(i))}</div>`).join('');
+    html += `<div class="notif-section-title">⏰ إيجارات متأخرة أو تُرجَع اليوم</div>`;
+    html += low.map(i=>`<div class="notif-item" onclick="switchView('dailysales'); closeNotifPanel();">${escapeHtml(i.itemName||'')} — ${escapeHtml(i.merchantName||'')} (الإرجاع: ${fmtDate(i.endDate)})</div>`).join('');
   }
   panel.innerHTML = html;
 }
@@ -1560,7 +1569,7 @@ function issuedQtyFor(itemId){
   return sum;
 }
 function remainingQtyFor(item){
-  return (Number(item.stockQty)||0) - issuedQtyFor(item.id);
+  return capOf(item) - issuedQtyFor(item.id);
 }
 /* المؤجَّر من لون معين لسيارة معين */
 function issuedQtyForColor(itemId, colorName){
@@ -1577,6 +1586,31 @@ function remainingQtyForColor(item, colorName){
   return stock - issuedQtyForColor(item.id, colorName);
 }
 function hasColorStock(item){ return false; }
+/* كل سيارة بلوحتها = وحدة واحدة؛ الطاقة دائماً 1 بغض النظر عن stockQty القديم */
+function capOf(item){ return 1; }
+
+/* ── التوافر حسب التاريخ: الإيجار يحجز السيارة فقط خلال فترته (الاستلام ← الإرجاع) ── */
+function localISO(d){ const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+function localToday(){ return localISO(new Date()); }
+function nextDay(d){ const x=new Date(d+'T00:00:00Z'); x.setUTCDate(x.getUTCDate()+1); return x.toISOString().slice(0,10); }
+function rentalBlocks(r, range){
+  if(r.returned) return false;            // رجعت للمخزون
+  if(!range || !r.date) return true;      // بدون فترة محددة: السلوك القديم
+  const today=localToday();
+  const rs=r.date; let re=r.endDate||'9999-12-31';
+  if(re<=rs) re=nextDay(rs);
+  if(re<=today) re=nextDay(today);        // انتهت مدتها ولم تُسجَّل كمُرجَعة: ما زالت خارج المخزون
+  const qe = range.e>range.s ? range.e : nextDay(range.s);
+  return rs<qe && re>range.s;             // تداخل الفترتين (يوم الإرجاع نفسه متاح للحجز التالي)
+}
+/* المتاح من سيارة خلال فترة محددة (للإيجارات الجديدة فقط؛ لا يغيّر أرقام المخزون الحالية) */
+function remainingQtyForRange(item, s, e){
+  const rg=(s&&e&&e>=s)?{s,e}:null;
+  let sum=0;
+  saleEntries.forEach(r=>{ if(r.itemId===item.id && rentalBlocks(r,rg)) sum+=Number(r.qty)||0; });
+  merchantTxs.forEach(tx=>{ (tx.items||[]).forEach(it=>{ if(it.itemId===item.id) sum+=Number(it.qty)||0; }); });
+  return capOf(item)-sum;
+}
 
 /* ===================== ITEMS: FIRESTORE ===================== */
 function listenToItems(){
@@ -1907,9 +1941,12 @@ function saveItem(){
   const piecesCount = Number(document.getElementById('itemPieces').value)||1;
   const price = Number(document.getElementById('itemPrice').value)||0;
   const usingColorStock = itemColorsList.length>0 && itemColorsManaged;
-  const today = new Date().toISOString().slice(0,10);
+  const today = localToday();
 
   if(!name){ showToast('من فضلك أدخل اسم السيارة'); return; }
+  const _plate = s=>(s||'').replace(/[\s\-]/g,'').toLowerCase();
+  if(!sku){ showToast('رقم اللوحة مطلوب لكل سيارة'); return; }
+  if(items.some(i=> i.id!==id && _plate(i.sku)===_plate(sku))){ showToast('رقم اللوحة مستخدم لسيارة أخرى'); return; }
 
   if(id){
     /* ===== وضع التعديل =====
@@ -1964,7 +2001,7 @@ function saveItem(){
       }
     }
 
-    const payload = { name, category, sku, color, colors, piecesCount, price, stockQty: newStockQty, alertThreshold: null, image: document.getElementById('itemImageData').value || '' };
+    const payload = { name, category, sku, color, colors, piecesCount, price, stockQty: 1, alertThreshold: null, image: document.getElementById('itemImageData').value || '' };
     if(usingColorStock) payload.colorStock = colorStock;
     else if(id) payload.colorStock = FVX.delete();
     if(Object.keys(colorImages).length) payload.colorImages = colorImages;
@@ -1986,7 +2023,7 @@ function saveItem(){
     if(usingColorStock) itemColorsList.forEach(c=> colorStock[c.name] = (Number(c.qty)||0));
     const stockQty = usingColorStock
       ? Object.values(colorStock).reduce((s,v)=> s+v, 0)
-      : Math.max(1, Number(document.getElementById('itemStock').value)||1);
+      : 1;
     const image = document.getElementById('itemImageData').value || '';
     const payload = { name, category, sku, color, colors, piecesCount, price, stockQty, alertThreshold: null, image };
     if(usingColorStock) payload.colorStock = colorStock;
@@ -2114,6 +2151,7 @@ function renderItems(){
       ${isStagnant ? `<div class="row stagnant-warn"><span>⏳ راكد منذ</span><span>${stagnantDays} يوم</span></div>` : ''}
       <div class="actions">
         <button class="link-btn" style="flex:1; text-align:center;" onclick='viewItemMovements(${JSON.stringify(item.id)}, ${JSON.stringify(item.name).replace(/'/g,"&apos;")})'>📋 الحركة</button>
+        <button class="link-btn" style="flex:1; text-align:center;" onclick='addMaintenance(${JSON.stringify(item.id)}, ${JSON.stringify(item.name).replace(/'/g,"&apos;")})'>🔧 صيانة</button>
       </div>
       <div class="actions edit-action">
         <button class="btn btn-outline btn-sm" onclick='openItemModal(${JSON.stringify(item).replace(/'/g,"&apos;")})'>تعديل</button>
@@ -2133,7 +2171,7 @@ function openItemArchiveModal(){
       <div class="item-card" style="margin-bottom:10px;">
         <h3>${escapeHtml(item.name)}</h3>
         
-        <div class="row"><span>الكمية في الأسطول</span><span>${fmt(item.stockQty)}</span></div>
+        <div class="row"><span>الكمية في الأسطول</span><span>${fmt(capOf(item))}</span></div>
         <div class="actions edit-action">
           <button class="btn btn-outline btn-sm" onclick="restoreItem('${item.id}'); openItemArchiveModal();">↩️ استعادة</button>
           <button class="btn btn-danger btn-sm" onclick="permanentlyDeleteItem('${item.id}'); openItemArchiveModal();">🗑 حذف نهائي</button>
@@ -2174,7 +2212,7 @@ function downloadCsv(filename, rows){
 function exportItemsCsv(){
   const rows = [['الاسم','الفئة','الكود','مقعد','السعر','الكمية في الأسطول','المؤجَّر','المتبقي','تاريخ الإضافة']];
   items.filter(i=>!i.archived).forEach(i=>{
-    rows.push([i.name, i.category||'', i.sku||'', i.piecesCount, i.price, i.stockQty, issuedQtyFor(i.id), remainingQtyFor(i), itemCreatedDateStr(i)]);
+    rows.push([i.name, i.category||'', i.sku||'', i.piecesCount, i.price, capOf(i), issuedQtyFor(i.id), remainingQtyFor(i), itemCreatedDateStr(i)]);
   });
   downloadCsv('السيارات.csv', rows);
 }
@@ -2220,7 +2258,7 @@ function exportFullBackup(){
   const blob = new Blob([json], {type:'application/json;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `نسخة-احتياطية-تأجير السيارات-${new Date().toISOString().slice(0,10)}.json`;
+  a.href = url; a.download = `نسخة-احتياطية-تأجير السيارات-${localToday()}.json`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast('تم تصدير النسخة الاحتياطية');
@@ -2283,6 +2321,8 @@ function writeBackupCollection(name, list){
 }
 
 function restoreFullBackup(data){
+  if(!data || !Array.isArray(data.items)){ showToast('ملف النسخة غير صالح — لم يتم تغيير أي بيانات'); return; }
+  try{ exportFullBackup(); }catch(e){ console.warn('safety backup failed', e); }   // نسخة أمان من البيانات الحالية قبل المسح
   showToast('جارٍ استعادة النسخة الاحتياطية...');
   Promise.all([
     clearCollection('cars'),
@@ -2323,7 +2363,7 @@ function renderRemainingStock(){
       <div class="item-name-label">الموديل</div>
       <h3 class="item-name-big">${escapeHtml(item.name)}</h3>
       
-      <div class="row"><span>الكمية في الأسطول</span><span>${fmt(item.stockQty)}</span></div>
+      <div class="row"><span>الكمية في الأسطول</span><span>${fmt(capOf(item))}</span></div>
       <div class="row"><span>المؤجَّر</span><span>${fmt(issued)}</span></div>
       <div class="row ${remaining<0?'remaining-low':''} ${lowStock?'remaining-low':''}"><span>📦 المتبقي</span><span>${fmt(remaining)}</span></div>
       ${hasColorStock(item) ? `
@@ -2360,7 +2400,7 @@ function logStockMovement({itemId, itemName, type, qty, date, note, sourceType, 
   if(!db) return;
   db.collection('carMovements').add({
     itemId: itemId||'', itemName: itemName||'', type, qty: Number(qty)||0,
-    date: date || new Date().toISOString().slice(0,10),
+    date: date || localToday(),
     note: note||'', sourceType: sourceType||'', sourceId: sourceId||'',
     createdAt: FVX.serverTimestamp()
   }).catch(e=> console.error('movement log error', e));
@@ -2762,20 +2802,17 @@ function updateSaleAvailabilityHint(){
   const colorSel = document.getElementById('saleColorSelect');
   const color = (colorField.style.display !== 'none' && colorSel) ? colorSel.value : '';
 
-  const available = (hasColorStock(itemObj) && color)
-    ? remainingQtyForColor(itemObj, color)
-    : remainingQtyFor(itemObj);
+  const available = remainingQtyForRange(itemObj, document.getElementById('saleDate').value, document.getElementById('saleEndDate').value);
 
-  const qty = Number(document.getElementById('saleQty').value)||0;
-  const over = qty > available;
+  const over = available < 1;
   hint.style.color = over ? 'var(--red)' : 'var(--muted)';
-  hint.textContent = `المتاح في الأسطول${color?' (لون '+color+')':''}: ${fmt(available)}` + (over ? ' — الكمية المطلوبة أكبر من المتاح' : '');
+  hint.textContent = over ? '❌ السيارة غير متاحة في هذه الفترة' : '✅ السيارة متاحة في هذه الفترة';
 }
 
 function resetSaleForm(){
   document.getElementById('saleItemSelect').value = '';
   document.getElementById('saleMerchantSelect').value = '';
-  document.getElementById('saleQty').value = 1; document.getElementById('saleEndDate').value=''; document.getElementById('saleTotal').value='';
+  document.getElementById('saleQty').value = 1; document.getElementById('saleEndDate').value=''; document.getElementById('saleTotal').value=''; const _dp=document.getElementById('saleDeposit'); if(_dp) _dp.value=0;
   document.getElementById('salePrice').value = '';
   document.getElementById('saleSku').value = '';
   document.getElementById('saleColorField').style.display = 'none';
@@ -2786,7 +2823,7 @@ function saveSaleEntry(){
   const dateVal = document.getElementById('saleDate').value;
   const merchantId = document.getElementById('saleMerchantSelect').value;
   const itemId = document.getElementById('saleItemSelect').value;
-  const qty = Number(document.getElementById('saleQty').value)||0;
+  const qty = 1;
   const price = Number(document.getElementById('salePrice').value)||0;
   const sku = document.getElementById('saleSku').value;
   const colorSel = document.getElementById('saleColorSelect');
@@ -2804,9 +2841,7 @@ function saveSaleEntry(){
   const itemObj = items.find(i=>i.id===itemId);
   if(!itemObj){ showToast('تعذر إيجاد السيارة المحدد'); return; }
 
-  const availableQty = (hasColorStock(itemObj) && color)
-    ? remainingQtyForColor(itemObj, color)
-    : remainingQtyFor(itemObj);
+  const availableQty = remainingQtyForRange(itemObj, dateVal, endVal);
 
   if(qty > availableQty){
     showToast(availableQty <= 0
@@ -2824,12 +2859,15 @@ function saveSaleEntry(){
     sku,
     color,
     qty,
-    price, endDate: endVal, days: rentalDays(dateVal,endVal), total: price*qty*rentalDays(dateVal,endVal), returned:false,
+    price, endDate: endVal, days: rentalDays(dateVal,endVal), total: price*qty*rentalDays(dateVal,endVal), returned:false, paid: Number(document.getElementById('saleDeposit')?.value)||0,
     createdAt: FVX.serverTimestamp()
   };
 
   const today = dateVal;
-  db.collection('rentals').add(payload).then(ref=>{
+  freshAvailability(itemObj,dateVal,endVal).then(av=>{
+    if(qty>av){ showToast(`تعذر الحفظ — المتاح الآن في هذه الفترة: ${fmt(Math.max(0,av))} فقط`); return null; }
+    return db.collection('rentals').add(payload);
+  }).then(ref=>{ if(!ref) return;
     logStockMovement({
       itemId, itemName: itemObj?itemObj.name:'', type:'out', qty, date: today,
       note: 'تأجير للعميل: '+(merchantProfile?merchantProfile.name:''), sourceType:'sale', sourceId: ref.id
@@ -2841,8 +2879,9 @@ function saveSaleEntry(){
 
 function deleteSaleEntry(id, itemId, itemName, qty, date){
   if(!confirm('هل تريد حذف هذه العملية؟ سيتم استعادة السيارة للأسطول.')) return;
+  const _r = saleEntries.find(x=>x.id===id), _wasReturned = !!(_r && _r.returned);
   db.collection('rentals').doc(id).delete().then(()=>{
-    logStockMovement({itemId, itemName, type:'in', qty, date, note:'إلغاء تأجير', sourceType:'sale_cancel', sourceId:id});
+    if(!_wasReturned) logStockMovement({itemId, itemName, type:'in', qty, date, note:'إلغاء تأجير', sourceType:'sale_cancel', sourceId:id});
     showToast('تم حذف العملية');
   }).catch(e=> showToast('خطأ: '+e.message));
 }
@@ -2853,12 +2892,98 @@ function updateRentalTotal(){
   const a=g('saleDate').value, b=g('saleEndDate').value;
   g('saleTotal').value = (a&&b&&b>=a) ? fmt((Number(g('salePrice').value)||0)*(Number(g('saleQty').value)||0)*rentalDays(a,b)) : '';
 }
+function lateDaysOf(r){ const td=localToday(); return (r.endDate && r.endDate<td) ? Math.round((new Date(td)-new Date(r.endDate))/864e5) : 0; }
 function returnRental(id,itemId,itemName,qty,date){
-  if(!confirm('تأكيد إرجاع السيارة؟ ستعود للأسطول كمتاحة.')) return;
-  db.collection('rentals').doc(id).update({returned:true, returnedAt: FVX.serverTimestamp()}).then(()=>{
-    logStockMovement({itemId, itemName, type:'in', qty, date: new Date().toISOString().slice(0,10), note:'إرجاع سيارة مؤجرة', sourceType:'rental_return', sourceId:id});
-    showToast('تم تسجيل الإرجاع');
+  const r=saleEntries.find(x=>x.id===id)||{}, maint=r.sourceType==='maintenance';
+  const late = maint?0:lateDaysOf(r), fee = late*(Number(r.price)||0)*(Number(r.qty)||1);
+  const msg = maint ? 'إنهاء الصيانة وإعادة السيارة للأسطول؟' : (late ? `السيارة متأخرة ${late} يوم — غرامة التأخير ${fmt(fee)} (يوم إيجار عن كل يوم تأخير). تأكيد الإرجاع؟` : 'تأكيد إرجاع السيارة؟ ستعود للأسطول كمتاحة.');
+  if(!confirm(msg)) return;
+  const upd={returned:true, returnedAt: FVX.serverTimestamp()};
+  if(fee>0){ upd.lateDays=late; upd.lateFee=fee; upd.total=(Number(r.total)||0)+fee; }
+  db.collection('rentals').doc(id).update(upd).then(()=>{
+    if(!maint) logStockMovement({itemId, itemName, type:'in', qty, date: localToday(), note:'إرجاع سيارة مؤجرة', sourceType:'rental_return', sourceId:id});
+    showToast(fee>0 ? `تم الإرجاع — غرامة التأخير ${fmt(fee)}` : 'تم تسجيل الإرجاع');
   }).catch(e=> showToast('خطأ: '+e.message));
+}
+function statusCell(r, safeName){
+  if(r.source!=='sale') return '-';
+  const e=saleEntries.find(x=>x.id===r.id)||{}, maint=e.sourceType==='maintenance';
+  let h='';
+  if(r.returned) h=`✅ ${maint?'انتهت الصيانة':'تم الإرجاع'}${e.lateFee?` <small>(غرامة ${fmt(e.lateFee)})</small>`:''}`;
+  else {
+    const late=lateDaysOf(r);
+    if(late>0 && !maint) h+=`<div style="color:var(--red);font-weight:700">⏰ متأخر ${late} يوم</div>`;
+    h+=`<button class="btn btn-outline btn-sm edit-action" onclick='returnRental("${r.id}","${r.itemId}",${safeName},${r.qty},"${r.date}")'>↩️ ${maint?'إنهاء':'إرجاع'}</button>`;
+  }
+  if(!maint){
+    const total=Number(r.total)||0, paid=Number(e.paid)||0, rest=total-paid;
+    h+=`<div style="font-size:11.5px;margin-top:4px;color:${rest>0?'var(--red)':'var(--muted)'}">${rest>0?`💰 مدفوع ${fmt(paid)} • باقي ${fmt(rest)}`:'💰 مسدّد'}</div>
+    <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap"><button class="btn btn-outline btn-sm edit-action" onclick="addPayment('${r.id}')">دفعة</button><button class="btn btn-outline btn-sm" onclick="waRentalMsg('${r.id}')">💬</button><button class="btn btn-outline btn-sm" onclick="printContract('${r.id}')">📄 عقد</button></div>`;
+  }
+  return h;
+}
+function addPayment(id){
+  const r=saleEntries.find(x=>x.id===id); if(!r) return;
+  const paid=Number(r.paid)||0, v=Number(prompt(`المدفوع حتى الآن ${fmt(paid)} من ${fmt(Number(r.total)||0)}\nأدخل مبلغ الدفعة:`));
+  if(!v||v<=0) return;
+  db.collection('rentals').doc(id).update({paid:paid+v}).then(()=>showToast('تم تسجيل الدفعة')).catch(e=>showToast('خطأ: '+e.message));
+}
+function waRentalMsg(id){
+  const r=saleEntries.find(x=>x.id===id); if(!r) return;
+  const prof=merchantProfiles.find(p=>p.id===r.merchantId)||{};
+  let ph=normPhoneDigits(r.merchantPhone||prof.phone); if(!ph){ showToast('لا يوجد رقم هاتف للعميل'); return; }
+  if(ph.startsWith('0')) ph='20'+ph.slice(1);
+  const msg = lateDaysOf(r)>0
+    ? `مرحباً ${r.merchantName||''}، موعد إرجاع السيارة ${r.itemName} كان ${fmtDate(r.endDate)} وقد تأخر التسليم. برجاء التواصل معنا لإرجاعها، وتُحتسب غرامة عن كل يوم تأخير.`
+    : `مرحباً ${r.merchantName||''}، نذكّرك بموعد إرجاع السيارة ${r.itemName} بتاريخ ${fmtDate(r.endDate)}. شكراً لاختيارك لنا.`;
+  window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
+}
+function addMaintenance(itemId,name){
+  const ok=d=>/^\d{4}-\d{2}-\d{2}$/.test(d||'');
+  const s=prompt('بداية الصيانة / الخروج من الخدمة (YYYY-MM-DD)',localToday()); if(!ok(s)) return;
+  const e=prompt('نهاية الصيانة (YYYY-MM-DD)',nextDay(s)); if(!ok(e)||e<s){ showToast('تاريخ غير صحيح'); return; }
+  const car=items.find(i=>i.id===itemId); if(!car) return;
+  freshAvailability(car,s,e).then(av=>{
+    if(av<1){ showToast('السيارة محجوزة في هذه الفترة — لا يمكن إدخالها للصيانة'); return; }
+    return db.collection('rentals').add({date:s,endDate:e,days:rentalDays(s,e),itemId,itemName:name,sku:car.sku||'',color:'',qty:1,price:0,total:0,paid:0,returned:false,merchantName:'🔧 صيانة / خارج الخدمة',merchantId:'',sourceType:'maintenance',createdAt:FVX.serverTimestamp()}).then(()=>showToast('تم حجز السيارة للصيانة'));
+  }).catch(err=>showToast('خطأ: '+err.message));
+}
+function printContract(id){
+  const r=saleEntries.find(x=>x.id===id); if(!r) return;
+  const p=merchantProfiles.find(x=>x.id===r.merchantId)||{}, car=items.find(i=>i.id===r.itemId)||{};
+  const total=Number(r.total)||0, paid=Number(r.paid)||0, E=escapeHtml;
+  const w=window.open('','_blank'); if(!w){ showToast('اسمح بالنوافذ المنبثقة لطباعة العقد'); return; }
+  w.document.write(`<html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>عقد إيجار سيارة</title><style>body{font-family:Tahoma,Arial,sans-serif;padding:30px;line-height:1.9}h1{text-align:center}table{border-collapse:collapse;width:100%}td{padding:6px 10px;border:1px solid #999}td:first-child{background:#f2f2f2;width:30%}.sig{display:flex;justify-content:space-between;margin-top:70px}</style></head><body>
+  <h1>عقد إيجار سيارة</h1><p>تاريخ العقد: ${fmtDate(r.date)}</p>
+  <table><tr><td>المستأجر</td><td>${E(r.merchantName||p.name||'')}</td></tr><tr><td>الهاتف</td><td>${E(r.merchantPhone||p.phone||'')}</td></tr>
+  <tr><td>السيارة</td><td>${E(r.itemName||'')}</td></tr><tr><td>رقم اللوحة</td><td>${E(r.sku||car.sku||'')}</td></tr>
+  <tr><td>فترة الإيجار</td><td>من ${fmtDate(r.date)} إلى ${fmtDate(r.endDate)} (${r.days||1} يوم)</td></tr>
+  <tr><td>السعر اليومي</td><td>${fmt(r.price)} جنيه</td></tr><tr><td>الإجمالي</td><td>${fmt(total)} جنيه</td></tr>
+  <tr><td>المدفوع / المتبقي</td><td>${fmt(paid)} / ${fmt(total-paid)} جنيه</td></tr></table>
+  <h3>الشروط</h3><ol><li>يلتزم المستأجر بإعادة السيارة في الموعد المحدد وبالحالة التي استلمها بها.</li><li>يُحتسب عن كل يوم تأخير مبلغ يساوي سعر الإيجار اليومي.</li><li>المستأجر مسؤول عن المخالفات المرورية والأضرار خلال فترة الإيجار.</li><li>لا يجوز تأجير السيارة من الباطن أو استخدامها خارج الغرض المتفق عليه.</li></ol>
+  <div class="sig"><div>توقيع المؤجر: ____________</div><div>توقيع المستأجر: ____________</div></div></body></html>`);
+  w.document.close(); w.focus(); setTimeout(()=>w.print(),300);
+}
+function renderCarReport(){
+  const f=document.getElementById('crFrom'), tt=document.getElementById('crTo'); if(!f||!tt) return;
+  if(!f.value){ const d=new Date(); d.setDate(d.getDate()-29); f.value=localISO(d); }
+  if(!tt.value) tt.value=localToday();
+  const s=f.value, e=nextDay(tt.value), span=Math.max(1,Math.round((new Date(e)-new Date(s))/864e5));
+  const rows=items.filter(i=>!i.archived).map(car=>{
+    let days=0,rev=0,cnt=0,maint=0;
+    saleEntries.forEach(r=>{
+      if(r.itemId!==car.id||!r.date) return;
+      const re=(r.endDate&&r.endDate>r.date)?r.endDate:nextDay(r.date), a=r.date>s?r.date:s, b=re<e?re:e; if(b<=a) return;
+      const d=Math.round((new Date(b)-new Date(a))/864e5);
+      if(r.sourceType==='maintenance'){ maint+=d; return; }
+      days+=d; cnt++; rev+=d*(Number(r.price)||0)*(Number(r.qty)||1);
+    });
+    return {car,days,rev,cnt,maint,occ:Math.min(100,Math.round(days/span*100))};
+  }).sort((a,b)=>b.rev-a.rev);
+  const tot=rows.reduce((s,x)=>s+x.rev,0);
+  document.getElementById('carReportBody').innerHTML=`<table><thead><tr><th>السيارة</th><th>اللوحة</th><th>أيام مؤجرة</th><th>الإشغال</th><th>عدد الإيجارات</th><th>الإيراد</th><th>أيام صيانة</th></tr></thead><tbody>`+
+    rows.map(x=>`<tr><td>${escapeHtml(x.car.name)}</td><td>${escapeHtml(x.car.sku||'-')}</td><td>${x.days}</td><td>${x.occ}%</td><td>${x.cnt}</td><td class="money">${fmt(x.rev)}</td><td>${x.maint}</td></tr>`).join('')+
+    `<tr><td colspan="5"><b>الإجمالي (${span} يوم)</b></td><td class="money"><b>${fmt(tot)}</b></td><td></td></tr></tbody></table>`;
 }
 function openMerchantModal(tx){}  /* legacy - kept to avoid errors from archived views */
 
@@ -2878,7 +3003,7 @@ function addMerchantItemRow(existing){
   const wrap = document.createElement('div');
   wrap.className = 'merchant-item-row';
   wrap.id = rowId;
-  const defaultItemDate = existing ? (existing.itemDate || new Date().toISOString().slice(0,10)) : new Date().toISOString().slice(0,10);
+  const defaultItemDate = existing ? (existing.itemDate || localToday()) : localToday();
   wrap.innerHTML = `
     <div class="mi-row1">
       <div class="merchant-item-thumb mi-thumb" id="thumb_${rowId}">🧳</div>
@@ -3179,7 +3304,7 @@ function exportCurrentStatementCsv(){
 let currentDailySalesExport = null;
 
 function setDailySalesToday(){
-  const today = new Date().toISOString().slice(0,10);
+  const today = localToday();
   document.getElementById('dsFilterDateFrom').value = today;
   document.getElementById('dsFilterDateTo').value = today;
   renderDailySales();
@@ -3252,7 +3377,7 @@ function ensureDsCalendarMonth(){
   if(dsCalendarMonth) return;
   const parsed = parseYmd(document.getElementById('dsFilterDateFrom')?.value);
   if(parsed){ dsCalendarMonth = new Date(parsed.y, parsed.mo-1, 1); return; }
-  const t = parseYmd(new Date().toISOString().slice(0,10));
+  const t = parseYmd(localToday());
   dsCalendarMonth = new Date(t.y, t.mo-1, 1);
 }
 
@@ -3263,7 +3388,7 @@ function dsCalendarChangeMonth(delta){
 }
 
 function dsCalendarGoToday(){
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = localToday();
   const t = parseYmd(todayStr);
   dsCalendarMonth = new Date(t.y, t.mo-1, 1);
   document.getElementById('dsFilterDateFrom').value = todayStr;
@@ -3307,7 +3432,7 @@ function renderDsCalendarGrid(){
   const dayLabels = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
   const startOffset = new Date(year, month, 1).getDay(); // 0=أحد
   const daysInMonth = new Date(year, month+1, 0).getDate();
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = localToday();
   const fromDate = document.getElementById('dsFilterDateFrom')?.value || '';
   const toDate = document.getElementById('dsFilterDateTo')?.value || '';
 
@@ -3385,7 +3510,7 @@ function renderDailySales(){
         <td class="money">${fmt(r.qty)}</td>
         <td>${r.endDate?fmtDate(r.date)+' ← '+fmtDate(r.endDate)+' ('+r.days+' يوم)':'-'}</td>
         <td class="money">${fmt(r.total||0)}</td>
-        <td>${r.source==='sale'?(r.returned?'✅ تم الإرجاع':`<button class="btn btn-outline btn-sm edit-action" onclick='returnRental("${r.id}","${r.itemId}",${safeItemName},${r.qty},"${r.date}")'>↩️ إرجاع</button>`):'-'}</td>
+        <td>${statusCell(r, safeItemName)}</td>
         <td>${thumbCell}</td>
         <td>${deleteCell}</td>
       </tr>`;
@@ -3543,10 +3668,10 @@ function sendStatementWhatsapp(){ showToast('استخدم زر الواتساب 
 function renderDashboard(){
   const activeItems = items.filter(i=>!i.archived);
   document.getElementById('statItemsCount').textContent = fmt(activeItems.length);
-  const totalStock = activeItems.reduce((s,i)=> s + (Number(i.stockQty)||0), 0);
+  const totalStock = activeItems.reduce((s,i)=> s + capOf(i), 0);
   const totalIssued = activeItems.reduce((s,i)=> s + issuedQtyFor(i.id), 0);
   const totalRemaining = totalStock - totalIssued;
-  const stockValue = activeItems.reduce((s,i)=> s + (Number(i.stockQty)||0)*(Number(i.price)||0), 0);
+  const stockValue = activeItems.reduce((s,i)=> s + capOf(i)*(Number(i.price)||0), 0);
   const revenue = saleEntries.reduce((s,r)=> s + (r.total!==undefined ? Number(r.total)||0 : (Number(r.qty)||0)*(Number(r.price)||0)), 0);
 
   document.getElementById('statTotalStock').textContent = fmt(totalStock);
@@ -3693,6 +3818,7 @@ function renderOrders(){
       </div>
       ${order.note ? `<div class="order-note">💬 ملاحظات العميل: ${escapeHtml(order.note)}</div>` : ''}
 
+      ${orderConflictHtml(order)}
       <div class="order-actions">
         ${order.status==='pending' ? `
           <button class="btn btn-gold btn-sm" onclick="updateOrderStatus('${order.id}','confirmed')">✅ تأكيد الطلب</button>
@@ -3729,56 +3855,97 @@ function deleteOrder(orderId){
     .catch(e=> showToast('خطأ: '+e.message));
 }
 
+/* ===== فحص التوفر الحي من السيرفر (يضيّق فرصة التعارض عند الحفظ المتزامن) ===== */
+function freshAvailability(item, s, e){
+  const rg=(s&&e&&e>=s)?{s,e}:null;
+  return db.collection('rentals').where('itemId','==',item.id).get().then(snap=>{
+    let sum=0; snap.forEach(d=>{ const r=d.data(); if(rentalBlocks(r,rg)) sum+=Number(r.qty)||0; });
+    merchantTxs.forEach(tx=>{ (tx.items||[]).forEach(it=>{ if(it.itemId===item.id) sum+=Number(it.qty)||0; }); });
+    return capOf(item)-sum;
+  }).catch(()=> remainingQtyForRange(item,s,e));
+}
+const _converting = new Set();
+function normPhoneDigits(p){ return (p||'').replace(/[^0-9]/g,''); }
+
+/* تحذير تعارض الطلبات المعلّقة/المؤكدة مع الإيجارات الحالية ومع بعضها */
+function orderConflictHtml(order){
+  if(order.status!=='pending' && order.status!=='confirmed') return '';
+  const s=order.startDate, e=order.endDate; if(!s||!e) return '';
+  const qe = e>s ? e : nextDay(s), msgs=[], need={};
+  (order.items||[]).forEach(it=>{ need[it.itemId]=(need[it.itemId]||0)+(Number(it.qty)||0); });
+  Object.keys(need).forEach(id=>{
+    const car=items.find(i=>i.id===id); if(!car) return;
+    const av=remainingQtyForRange(car,s,e);
+    if(need[id]>av){ msgs.push(`${escapeHtml(car.name)}: المطلوب ${need[id]} والمتاح في الفترة ${Math.max(0,av)}`); return; }
+    let others=0;
+    orders.forEach(o=>{
+      if(o.id===order.id || !(o.status==='pending'||o.status==='confirmed') || !o.startDate || !o.endDate) return;
+      const oe = o.endDate>o.startDate ? o.endDate : nextDay(o.startDate);
+      if(o.startDate<qe && oe>s) (o.items||[]).forEach(it=>{ if(it.itemId===id) others+=Number(it.qty)||0; });
+    });
+    if(others && need[id]+others>av) msgs.push(`${escapeHtml(car.name)}: يتعارض مع طلبات أخرى معلّقة/مؤكدة في نفس الفترة`);
+  });
+  return msgs.length ? `<div class="order-note" style="color:var(--red)">⚠️ ${msgs.join('<br>')}</div>` : '';
+}
+
 function convertOrderToSales(orderId){
   const order = orders.find(o=>o.id===orderId);
   if(!order){ showToast('الطلب غير موجود'); return; }
+  if(order.status==='done'||order.status==='cancelled'||order.convertedAt){ showToast('هذا الطلب سبق تحويله أو تم إلغاؤه'); return; }
+  const s=order.startDate, e=order.endDate;
+  if(!s||!e||e<s){ showToast('تواريخ الطلب غير صحيحة'); return; }
+  if(_converting.has(orderId)) return;
   if(!confirm(`تحويل طلب "${order.merchantName}" (${(order.items||[]).length} سيارات) إلى إيجارات؟\nسيُضاف كل سيارة في الطلب كعملية تأجير منفصلة في الإيجارات اليومية.`)) return;
+  _converting.add(orderId);
 
-  const today = new Date().toISOString().slice(0,10);
-  const batch = db.batch();
+  const need={}, names={};
+  (order.items||[]).forEach(it=>{ need[it.itemId]=(need[it.itemId]||0)+(Number(it.qty)||0); names[it.itemId]=it.itemName||''; });
 
-  (order.items||[]).forEach(it=>{
-    const ref = db.collection('rentals').doc();
-    batch.set(ref, {
-      merchantName: order.merchantName||'',
-      merchantPhone: order.merchantPhone||'',
-      itemId: it.itemId||'',
-      itemName: it.itemName||'',
-      sku: it.sku||'',
-      color: it.color||'',
-      qty: Number(it.qty)||0,
-      price: Number(it.price)||0,
-      date: order.startDate||today, endDate: order.endDate||order.startDate||today, days: Number(order.days)||1,
-      total: (Number(it.qty)||0)*(Number(it.price)||0)*(Number(order.days)||1), returned:false,
-      createdAt: FVX.serverTimestamp(),
-      sourceType: 'order',
-      sourceOrderId: orderId,
-    });
-    // log stock movement
-    if(it.itemId){
-      const movRef = db.collection('carMovements').doc();
-      batch.set(movRef, {
-        itemId: it.itemId,
-        itemName: it.itemName||'',
-        type: 'out',
-        qty: Number(it.qty)||0,
-        date: today,
-        note: `طلب عميل: ${order.merchantName||''}`,
-        sourceType: 'order',
-        sourceId: orderId,
-      });
+  Promise.all(Object.keys(need).map(id=>{
+    const car=items.find(i=>i.id===id);
+    if(!car) return Promise.resolve({name:names[id]||id, ok:false, av:0});
+    return freshAvailability(car,s,e).then(av=>({name:car.name, ok:need[id]<=av, av}));
+  })).then(res=>{
+    const bad=res.filter(r=>!r.ok);
+    if(bad.length){ showToast('لا يمكن التحويل — غير متاح في الفترة: '+bad.map(b=>`${b.name} (المتاح ${Math.max(0,b.av)})`).join('، ')); throw new Error('__stop'); }
+    return db.collection('bookingRequests').doc(orderId).get();
+  }).then(snap=>{
+    const d = snap && snap.data ? snap.data() : null;
+    if(d && (d.status==='done'||d.status==='cancelled'||d.convertedAt)){ showToast('هذا الطلب سبق تحويله أو تم إلغاؤه'); throw new Error('__stop'); }
+
+    const batch = db.batch(), days = rentalDays(s,e);
+    // ربط الإيجارات بملف العميل (بالهاتف ثم الاسم) أو إنشاء ملف جديد
+    const ph=normPhoneDigits(order.merchantPhone), nm=normalizeMerchantName(order.merchantName);
+    const prof = merchantProfiles.find(p=> ph && normPhoneDigits(p.phone)===ph) || merchantProfiles.find(p=> normalizeMerchantName(p.name)===nm);
+    let merchantId;
+    if(prof) merchantId=prof.id;
+    else {
+      const cref=db.collection('customers').doc(); merchantId=cref.id;
+      batch.set(cref,{name:order.merchantName||'', phone:ph, address:'', notes:'تمت الإضافة تلقائيًا عند تحويل طلب', createdAt:FVX.serverTimestamp()});
     }
-  });
 
-  // mark order as done
-  const orderRef = db.collection('bookingRequests').doc(orderId);
-  batch.update(orderRef, {status:'done', convertedAt: FVX.serverTimestamp()});
-
-  batch.commit()
-    .then(()=>{
-      showToast('✅ تم تحويل الطلب لإيجارات بنجاح');
-    })
-    .catch(e=> showToast('خطأ: '+e.message));
+    (order.items||[]).forEach(it=>{
+      const car=items.find(i=>i.id===it.itemId);
+      const price = car ? (Number(car.price)||0) : (Number(it.price)||0);   // السعر من الأسطول لا من الطلب
+      const qty = Number(it.qty)||0;
+      const ref = db.collection('rentals').doc();
+      batch.set(ref, {
+        merchantId, merchantName: order.merchantName||'', merchantPhone: order.merchantPhone||'',
+        itemId: it.itemId||'', itemName: it.itemName||'', sku: it.sku||'', color: it.color||'',
+        qty, price, date: s, endDate: e, days, total: qty*price*days, returned:false,
+        createdAt: FVX.serverTimestamp(), sourceType:'order', sourceOrderId: orderId,
+      });
+      if(it.itemId){
+        batch.set(db.collection('carMovements').doc(), {
+          itemId: it.itemId, itemName: it.itemName||'', type:'out', qty, date: s,
+          note: `طلب عميل: ${order.merchantName||''}`, sourceType:'order', sourceId: orderId,
+        });
+      }
+    });
+    batch.update(db.collection('bookingRequests').doc(orderId), {status:'done', convertedAt: FVX.serverTimestamp()});
+    return batch.commit().then(()=> showToast('✅ تم تحويل الطلب لإيجارات بنجاح'));
+  }).catch(err=>{ if(err.message!=='__stop') showToast('خطأ: '+err.message); })
+    .finally(()=> _converting.delete(orderId));
 }
 
 /* ===================== DEMO MODE (تجربة محلية بدون Firebase) ===================== */
@@ -3884,7 +4051,7 @@ function startDemoFromSetup(){ localStorage.removeItem('carapp_skip_demo'); star
   } else if(!localStorage.getItem('carapp_skip_demo')){
     startDemo();
   }
-  const today = new Date().toISOString().slice(0,10);
+  const today = localToday();
   const saleDateEl = document.getElementById('saleDate');
   if(saleDateEl) saleDateEl.value = today;
 })();

@@ -1701,12 +1701,16 @@ function rentalBlocks(r, range){
   const rs=r.date; let re=r.endDate||'9999-12-31';
   if(re<=rs) re=nextDay(rs);
   if(re<=today) re=nextDay(today);        // انتهت مدتها ولم تُسجَّل كمُرجَعة: ما زالت خارج المخزون
+  const isMaint = r.sourceType==='maintenance';
   const qe = range.e>range.s ? range.e : nextDay(range.s);
-  return rs<qe && re>range.s;             // تداخل الفترتين (يوم الإرجاع نفسه متاح للحجز التالي)
+  /* الصيانة تبدأ صباحاً وقد يتأخر العميل: لا يُسمح بحجز ينتهي في يوم بداية الصيانة، ولا بصيانة تبدأ في يوم إرجاع حجز */
+  const qeEff = (isMaint && !range.maint) ? nextDay(qe) : qe;
+  const reEff = (!isMaint && range.maint) ? nextDay(re) : re;
+  return rs<qeEff && reEff>range.s;       // تداخل الفترتين (يوم الإرجاع متاح للحجز التالي، إلا مع الصيانة)
 }
 /* المتاح من سيارة خلال فترة محددة (للإيجارات الجديدة فقط؛ لا يغيّر أرقام المخزون الحالية) */
-function remainingQtyForRange(item, s, e){
-  const rg=(s&&e&&e>=s)?{s,e}:null;
+function remainingQtyForRange(item, s, e, isMaint){
+  const rg=(s&&e&&e>=s)?{s,e,maint:!!isMaint}:null;
   let sum=0;
   saleEntries.forEach(r=>{ if(r.itemId===item.id && rentalBlocks(r,rg)) sum+=Number(r.qty)||0; });
   merchantTxs.forEach(tx=>{ (tx.items||[]).forEach(it=>{ if(it.itemId===item.id) sum+=Number(it.qty)||0; }); });
@@ -3117,8 +3121,8 @@ function saveMaintenance(){
   if(!s||!e||e<s){ showToast('تاريخ غير صحيح'); return; }
   const {itemId,name,id}=_maint;
   const car=items.find(i=>i.id===itemId); if(!car) return;
-  freshAvailability(car,s,e,id||undefined).then(av=>{
-    if(av<1){ showToast('السيارة محجوزة في هذه الفترة — لا يمكن إدخالها للصيانة'); return; }
+  freshAvailability(car,s,e,id||undefined,true).then(av=>{
+    if(av<1){ showToast('السيارة محجوزة في هذه الفترة (أو ينتهي حجز في يوم بداية الصيانة) — لا يمكن إدخالها للصيانة'); return; }
     if(id) return db.collection('rentals').doc(id).update({date:s,endDate:e,days:rentalDays(s,e)}).then(()=>{ closeModal('maintModalOverlay'); showToast('تم تعديل تواريخ الصيانة'); });
     return db.collection('rentals').add({date:s,endDate:e,days:rentalDays(s,e),itemId,itemName:name,sku:car.sku||'',color:'',qty:1,price:0,total:0,paid:0,returned:false,merchantName:'🔧 صيانة / خارج الخدمة',merchantId:'',sourceType:'maintenance',createdAt:FVX.serverTimestamp()}).then(()=>{ closeModal('maintModalOverlay'); showToast('تم حجز السيارة للصيانة'); });
   }).catch(err=>showToast('خطأ: '+err.message));
@@ -4132,13 +4136,13 @@ function deleteOrder(orderId){
 }
 
 /* ===== فحص التوفر الحي من السيرفر (يضيّق فرصة التعارض عند الحفظ المتزامن) ===== */
-function freshAvailability(item, s, e, excludeId){
-  const rg=(s&&e&&e>=s)?{s,e}:null;
+function freshAvailability(item, s, e, excludeId, isMaint){
+  const rg=(s&&e&&e>=s)?{s,e,maint:!!isMaint}:null;
   return db.collection('rentals').where('itemId','==',item.id).get().then(snap=>{
     let sum=0; snap.forEach(d=>{ if(excludeId && d.id===excludeId) return; const r=d.data(); if(rentalBlocks(r,rg)) sum+=Number(r.qty)||0; });
     merchantTxs.forEach(tx=>{ (tx.items||[]).forEach(it=>{ if(it.itemId===item.id) sum+=Number(it.qty)||0; }); });
     return capOf(item)-sum;
-  }).catch(()=> remainingQtyForRange(item,s,e));
+  }).catch(()=> remainingQtyForRange(item,s,e,isMaint));
 }
 const _converting = new Set();
 function normPhoneDigits(p){ return (p||'').replace(/[^0-9]/g,''); }

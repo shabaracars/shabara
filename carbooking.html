@@ -871,7 +871,9 @@ function rentalBlocks(r, range){
   if(re<=rs) re=nextDay(rs);
   if(re<=today) re=nextDay(today);        // انتهت مدتها ولم تُسجَّل كمُرجَعة: ما زالت خارج المخزون
   const qe = range.e>range.s ? range.e : nextDay(range.s);
-  return rs<qe && re>range.s;             // تداخل الفترتين (يوم الإرجاع نفسه متاح للحجز التالي)
+  /* الصيانة تبدأ صباحاً وقد يتأخر العميل في الإرجاع: لا يُسمح بحجز ينتهي في يوم بداية الصيانة */
+  const qeEff = (r.sourceType==='maintenance') ? nextDay(qe) : qe;
+  return rs<qeEff && re>range.s;          // تداخل الفترتين (يوم الإرجاع متاح للحجز التالي، إلا قبل الصيانة)
 }
 function selRange(){
   const a=document.getElementById('startDate')?.value, b=document.getElementById('endDate')?.value;

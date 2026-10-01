@@ -3044,6 +3044,7 @@ function statusCell(r, safeName){
     const late=lateDaysOf(r);
     if(late>0 && !maint) h+=`<div style="color:var(--red);font-weight:700">⏰ متأخر ${late} يوم</div>`;
     h+=`<button class="btn btn-outline btn-sm edit-action" onclick='returnRental("${r.id}","${r.itemId}",${safeName},${r.qty},"${r.date}")'>↩️ ${maint?'إنهاء':'إرجاع'}</button>`;
+    if(maint) h+=`<button class="btn btn-outline btn-sm edit-action" onclick="editMaintenance('${r.id}')">✏️ تعديل التواريخ</button>`;
   }
   if(!maint){
     const total=Number(r.total)||0, paid=Number(e.paid)||0, rest=total-paid;
@@ -3070,13 +3071,29 @@ function waRentalMsg(id){
 }
 let _maint=null;
 function addMaintenance(itemId,name){
-  _maint={itemId,name};
+  _maint={itemId,name,id:null};
   document.getElementById('maintTitle').textContent='🔧 صيانة: '+(name||'');
   const t=localToday();
   document.getElementById('maintStart').value=t;
   document.getElementById('maintEnd').value=nextDay(t);
   maintUpdateHint();
   document.getElementById('maintModalOverlay').classList.add('active');
+}
+function editMaintenance(id){
+  const r=saleEntries.find(x=>x.id===id); if(!r) return;
+  _maint={itemId:r.itemId, name:r.itemName||'', id};
+  document.getElementById('maintTitle').textContent='✏️ تعديل صيانة: '+(r.itemName||'');
+  document.getElementById('maintStart').value=r.date||localToday();
+  document.getElementById('maintEnd').value=r.endDate||nextDay(r.date||localToday());
+  maintUpdateHint();
+  document.getElementById('maintModalOverlay').classList.add('active');
+}
+function cancelMaintenance(id){
+  const r=saleEntries.find(x=>x.id===id); if(!r) return;
+  if(!confirm(`إلغاء صيانة ${r.itemName||''} (من ${fmtDate(r.date)} إلى ${fmtDate(r.endDate)})؟`)) return;
+  db.collection('rentals').doc(id).delete()
+    .then(()=>showToast('تم إلغاء الصيانة'))
+    .catch(e=>showToast('خطأ: '+e.message));
 }
 function maintStartChanged(){
   const s=document.getElementById('maintStart').value, eEl=document.getElementById('maintEnd');
@@ -3098,10 +3115,11 @@ function saveMaintenance(){
   if(!_maint) return;
   const s=document.getElementById('maintStart').value, e=document.getElementById('maintEnd').value;
   if(!s||!e||e<s){ showToast('تاريخ غير صحيح'); return; }
-  const {itemId,name}=_maint;
+  const {itemId,name,id}=_maint;
   const car=items.find(i=>i.id===itemId); if(!car) return;
-  freshAvailability(car,s,e).then(av=>{
+  freshAvailability(car,s,e,id||undefined).then(av=>{
     if(av<1){ showToast('السيارة محجوزة في هذه الفترة — لا يمكن إدخالها للصيانة'); return; }
+    if(id) return db.collection('rentals').doc(id).update({date:s,endDate:e,days:rentalDays(s,e)}).then(()=>{ closeModal('maintModalOverlay'); showToast('تم تعديل تواريخ الصيانة'); });
     return db.collection('rentals').add({date:s,endDate:e,days:rentalDays(s,e),itemId,itemName:name,sku:car.sku||'',color:'',qty:1,price:0,total:0,paid:0,returned:false,merchantName:'🔧 صيانة / خارج الخدمة',merchantId:'',sourceType:'maintenance',createdAt:FVX.serverTimestamp()}).then(()=>{ closeModal('maintModalOverlay'); showToast('تم حجز السيارة للصيانة'); });
   }).catch(err=>showToast('خطأ: '+err.message));
 }
@@ -3948,6 +3966,11 @@ function renderDashboard(){
           </div>`;
         }
       }
+      const _td = localToday();
+      const _mt = saleEntries.filter(r=> r.itemId===i.id && r.sourceType==='maintenance' && !r.returned && (r.endDate||r.date||'')>=_td)
+        .sort((a,b)=> String(a.date||'').localeCompare(String(b.date||'')));
+      const maintRows = _mt.length ? `<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);font-size:13px;font-weight:700;color:var(--gold-dark);">`
+        + _mt.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;"><span>🔧 صيانة${(r.date<=_td)?' (جارية الآن)':''}: من ${fmtDate(r.date)} إلى ${fmtDate(r.endDate)}</span><span style="display:flex;gap:6px;"><button class="btn btn-outline btn-sm edit-action" onclick="editMaintenance('${r.id}')">✏️ تعديل</button><button class="btn btn-danger btn-sm edit-action" onclick="cancelMaintenance('${r.id}')">🗑 إلغاء</button></span></div>`).join('') + `</div>` : '';
       return `<div class="totals-box" style="margin-bottom:8px;">
         <div class="line" style="align-items:center;">
           <div style="display:flex;align-items:center;gap:8px;">
@@ -3956,7 +3979,7 @@ function renderDashboard(){
           </div>
           <span style="font-size:16px;font-weight:800;font-family:'Cairo',sans-serif;color:${remaining<=0?'var(--red)':'var(--ink)'};">${fmt(remaining)} متبقي</span>
         </div>
-        ${colorRows}
+        ${colorRows}${maintRows}
       </div>`;
     }).join('') : `<p class="page-sub" style="margin:0;">لا توجد سيارات بعد.</p>`;
   }
@@ -4109,10 +4132,10 @@ function deleteOrder(orderId){
 }
 
 /* ===== فحص التوفر الحي من السيرفر (يضيّق فرصة التعارض عند الحفظ المتزامن) ===== */
-function freshAvailability(item, s, e){
+function freshAvailability(item, s, e, excludeId){
   const rg=(s&&e&&e>=s)?{s,e}:null;
   return db.collection('rentals').where('itemId','==',item.id).get().then(snap=>{
-    let sum=0; snap.forEach(d=>{ const r=d.data(); if(rentalBlocks(r,rg)) sum+=Number(r.qty)||0; });
+    let sum=0; snap.forEach(d=>{ if(excludeId && d.id===excludeId) return; const r=d.data(); if(rentalBlocks(r,rg)) sum+=Number(r.qty)||0; });
     merchantTxs.forEach(tx=>{ (tx.items||[]).forEach(it=>{ if(it.itemId===item.id) sum+=Number(it.qty)||0; }); });
     return capOf(item)-sum;
   }).catch(()=> remainingQtyForRange(item,s,e));

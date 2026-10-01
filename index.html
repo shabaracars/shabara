@@ -4129,10 +4129,21 @@ function updateOrderStatus(orderId, newStatus){
 }
 
 function deleteOrder(orderId){
-  if(!confirm('حذف الطلب نهائياً؟')) return;
-  db.collection('bookingRequests').doc(orderId).delete()
-    .then(()=> showToast('تم حذف الطلب'))
-    .catch(e=> showToast('خطأ: '+e.message));
+  /* الإيجارات التي أُنشئت من هذا الحجز (بعد "تحويل لإيجارات") ولم تُرجَع بعد: تُحذف معه حتى لا تبقى في كارت السيارة */
+  const active = saleEntries.filter(r=> r.sourceOrderId===orderId && r.sourceType!=='maintenance' && !r.returned);
+  let msg = 'حذف الطلب نهائياً؟';
+  if(active.length){
+    const paid = active.reduce((x,r)=> x+(Number(r.paid)||0), 0);
+    msg = `هذا الطلب تم تحويله إلى ${active.length} إيجار.\nحذفه سيحذف هذه الإيجارات أيضاً ويُرجع السيارات للأسطول${paid>0?` (المدفوع عليها ${fmt(paid)} جنيه سيُحذف معها)`:''}.\nمتابعة؟`;
+  }
+  if(!confirm(msg)) return;
+  const batch = db.batch();
+  active.forEach(r=> batch.delete(db.collection('rentals').doc(r.id)));
+  batch.delete(db.collection('bookingRequests').doc(orderId));
+  batch.commit().then(()=>{
+    active.forEach(r=> logStockMovement({itemId:r.itemId, itemName:r.itemName, type:'in', qty:r.qty, date:r.date, note:'حذف حجز', sourceType:'order_delete', sourceId:orderId}));
+    showToast(active.length ? 'تم حذف الحجز وإيجاراته' : 'تم حذف الطلب');
+  }).catch(e=> showToast('خطأ: '+e.message));
 }
 
 /* ===== فحص التوفر الحي من السيرفر (يضيّق فرصة التعارض عند الحفظ المتزامن) ===== */

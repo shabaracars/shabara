@@ -898,6 +898,7 @@ setTimeout(function(){
     <div class="section-head"><h2>📦 جرد المتاح بالأسطول (لكل سيارة بألوانه)</h2></div>
     <div id="stockAuditList" class="card"></div>
 
+    <div id="orphanRentalsBox"></div>
     <div class="section-head"><h2>آخر عمليات العملاء</h2></div>
     <div id="recentMerchantsList"></div>
   </div>
@@ -1662,7 +1663,9 @@ function itemCreatedDateStr(item){
 function issuedQtyFor(itemId){
   let sum = 0;
   // من الإيجارات الجديدة
-  saleEntries.forEach(s=>{ if(s.itemId===itemId && !s.returned) sum += Number(s.qty)||0; });
+  /* المؤجَّر الآن فقط: لم تُرجَع وبدأت فعلاً (الحجوزات والصيانة المستقبلية لا تُحسب الآن) */
+  const _today = localToday();
+  saleEntries.forEach(s=>{ if(s.itemId===itemId && !s.returned && (!s.date || s.date<=_today)) sum += Number(s.qty)||0; });
   // من معاملات العملاء القديمة (للتوافق مع البيانات السابقة)
   merchantTxs.forEach(tx=>{
     (tx.items||[]).forEach(it=>{ if(it.itemId===itemId) sum += Number(it.qty)||0; });
@@ -3928,6 +3931,30 @@ function normalizePhoneForWhatsapp(phone){
 
 function sendStatementWhatsapp(){ showToast('استخدم زر الواتساب من نافذة سجل المشتريات'); }
 
+/* إيجارات أُنشئت من حجز ثم حُذف الحجز (قبل إصلاح الحذف) وما زالت تحجز السيارة */
+function orphanRentals(){
+  if(!ordersLoaded) return [];
+  const ids = new Set(orders.map(o=>o.id));
+  return saleEntries.filter(r=> r.sourceOrderId && r.sourceType!=='maintenance' && !r.returned && !ids.has(r.sourceOrderId));
+}
+function renderOrphanRentalsBox(){
+  const box=document.getElementById('orphanRentalsBox'); if(!box) return;
+  const o=orphanRentals();
+  box.innerHTML = o.length ? `<div class="card" style="border:1px solid var(--red);margin-bottom:14px;">
+    <div style="font-weight:800;margin-bottom:6px;">⚠️ ${o.length} إيجار من حجوزات محذوفة ما زالت مسجلة</div>
+    <div class="page-sub" style="margin:0 0 10px;">${o.map(r=>escapeHtml(r.itemName||'')+' ('+fmtDate(r.date)+')').join(' • ')}</div>
+    <button class="btn btn-danger btn-sm edit-action" onclick="cleanupOrphanRentals()">🗑 حذف هذه الإيجارات وإرجاع السيارات للأسطول</button>
+  </div>` : '';
+}
+function cleanupOrphanRentals(){
+  const o=orphanRentals(); if(!o.length) return;
+  if(!confirm(`حذف ${o.length} إيجار تابع لحجوزات محذوفة؟ ستعود السيارات متاحة.`)) return;
+  const batch=db.batch(); o.forEach(r=> batch.delete(db.collection('rentals').doc(r.id)));
+  batch.commit().then(()=>{
+    o.forEach(r=> logStockMovement({itemId:r.itemId, itemName:r.itemName, type:'in', qty:r.qty, date:r.date, note:'حذف إيجار حجز محذوف', sourceType:'order_delete', sourceId:r.sourceOrderId}));
+    showToast('تم حذف الإيجارات');
+  }).catch(e=> showToast('خطأ: '+e.message));
+}
 function renderDashboard(){
   const activeItems = items.filter(i=>!i.archived);
   document.getElementById('statItemsCount').textContent = fmt(activeItems.length);
@@ -3988,7 +4015,8 @@ function renderDashboard(){
     }).join('') : `<p class="page-sub" style="margin:0;">لا توجد سيارات بعد.</p>`;
   }
 
-  const recent = [...saleEntries].slice(0,6);
+  const recent = saleEntries.filter(r=> r.sourceType!=='maintenance').slice(0,6);
+  renderOrphanRentalsBox();
   const recentBox = document.getElementById('recentMerchantsList');
   recentBox.innerHTML = recent.length ? recent.map(r=>`
     <div class="merchant-card">
@@ -4004,13 +4032,16 @@ function renderDashboard(){
 
 /* ===================== ORDERS ===================== */
 let orders = [];
+let ordersLoaded = false;
 
 function listenToOrders(){
   db.collection('bookingRequests').orderBy('createdAt','desc').onSnapshot(snap=>{
     orders = [];
     snap.forEach(doc=> orders.push({id: doc.id, ...doc.data()}));
+    ordersLoaded = true;
     renderOrders();
     updateOrdersBadge();
+    renderOrphanRentalsBox();
   }, err=>{ console.warn('orders:', err.message); });
 }
 

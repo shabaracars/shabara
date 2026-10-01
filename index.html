@@ -2142,12 +2142,11 @@ function renderItems(){
       <span class="badge">${item.piecesCount} مقعد</span>
       ${item.category ? `<span class="category-chip">${escapeHtml(item.category)}</span>` : ''}
       <h3>${escapeHtml(item.name)}</h3>
-      ${item.sku ? `<div class="sku-tag">كود: ${escapeHtml(item.sku)}</div>` : ''}
+      ${item.sku ? `<div class="sku-tag">رقم اللوحة: ${escapeHtml(item.sku)}</div>` : ''}
       
       ${createdDate ? `<div class="color-name" style="margin-top:-6px;">تاريخ الإضافة: ${createdDate}</div>` : ''}
       <div class="row"><span>سعر الإيجار اليومي</span><span>${fmt(item.price)}</span></div>
-      <div class="row ${remaining<0?'remaining-low':''} ${lowStock?'remaining-low':''}"><span>📦 إجمالي السيارات في الأسطول</span><span>${fmt(remaining)}</span></div>
-      <div class="row"><span>المؤجَّر</span><span>${fmt(issued)}</span></div>
+      ${carStatusRowHtml(item)}
       ${isStagnant ? `<div class="row stagnant-warn"><span>⏳ راكد منذ</span><span>${stagnantDays} يوم</span></div>` : ''}
       <div class="actions">
         <button class="link-btn" style="flex:1; text-align:center;" onclick='viewItemMovements(${JSON.stringify(item.id)}, ${JSON.stringify(item.name).replace(/'/g,"&apos;")})'>📋 الحركة</button>
@@ -2159,6 +2158,35 @@ function renderItems(){
       </div>
     </div>`;
   }).join('');
+}
+
+/* حالة السيارة على الكارت: مؤجرة (حتى تاريخ الإرجاع) / في الصيانة / متاحة */
+function carStatusRowHtml(item){
+  const today = localToday();
+  const cur = saleEntries.filter(r=> r.itemId===item.id && !r.returned && (!r.date || r.date<=today));
+  const rent = cur.filter(r=> r.sourceType!=='maintenance').sort((a,b)=> (a.endDate||'9999').localeCompare(b.endDate||'9999'))[0];
+  const maint = cur.find(r=> r.sourceType==='maintenance');
+  const legacyRented = merchantTxs.some(tx=> (tx.items||[]).some(it=> it.itemId===item.id));
+  let html;
+  if(rent){
+    const late = rent.endDate && rent.endDate<today;
+    const until = rent.endDate ? `حتى ${fmtDate(rent.endDate)}${late?' (متأخرة)':''}` : '';
+    html = `<div class="row remaining-low"><span>🔴 مؤجرة</span><span style="font-size:14px;">${until}</span></div>`;
+  }else if(maint){
+    html = `<div class="row stagnant-warn"><span>🔧 في الصيانة</span><span style="font-size:14px;">${maint.endDate?'حتى '+fmtDate(maint.endDate):''}</span></div>`;
+  }else if(legacyRented){
+    html = `<div class="row remaining-low"><span>🔴 مؤجرة</span><span></span></div>`;
+  }else{
+    html = `<div class="row"><span>🟢 متاحة</span><span></span></div>`;
+  }
+  /* أقرب حجز قادم (لم يبدأ بعد) */
+  const next = saleEntries
+    .filter(r=> r.itemId===item.id && !r.returned && r.sourceType!=='maintenance' && r.date && r.date>today)
+    .sort((a,b)=> a.date.localeCompare(b.date))[0];
+  if(next){
+    html += `<div class="row"><span>📅 أقرب حجز قادم</span><span style="font-size:14px;">${fmtDate(next.date)}${next.endDate?' ← '+fmtDate(next.endDate):''}</span></div>`;
+  }
+  return html;
 }
 
 function openItemArchiveModal(){
@@ -2210,7 +2238,7 @@ function downloadCsv(filename, rows){
   URL.revokeObjectURL(url);
 }
 function exportItemsCsv(){
-  const rows = [['الاسم','الفئة','الكود','مقعد','السعر','الكمية في الأسطول','المؤجَّر','المتبقي','تاريخ الإضافة']];
+  const rows = [['الاسم','الفئة','رقم اللوحة','مقعد','السعر','الكمية في الأسطول','المؤجَّر','المتبقي','تاريخ الإضافة']];
   items.filter(i=>!i.archived).forEach(i=>{
     rows.push([i.name, i.category||'', i.sku||'', i.piecesCount, i.price, capOf(i), issuedQtyFor(i.id), remainingQtyFor(i), itemCreatedDateStr(i)]);
   });
@@ -3522,7 +3550,7 @@ function renderDailySales(){
     </div>
     <div class="card" style="overflow-x:auto; margin-bottom:14px;">
       <table>
-        <thead><tr><th>العميل</th><th>السيارة</th><th>الكود</th><th>الكمية</th><th>الفترة</th><th>الإجمالي</th><th>الحالة</th><th>الصورة</th><th></th></tr></thead>
+        <thead><tr><th>العميل</th><th>السيارة</th><th>رقم اللوحة</th><th>الكمية</th><th>الفترة</th><th>الإجمالي</th><th>الحالة</th><th>الصورة</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </div>`;
@@ -3544,7 +3572,7 @@ function exportDailySalesCsv(){
   const rows = [['الإيجارات اليومية']];
   rows.push([s.titleText||'']);
   rows.push([]);
-  rows.push(['التاريخ','العميل','السيارة','الكود','الكمية','السعر','الإجمالي']);
+  rows.push(['التاريخ','العميل','السيارة','رقم اللوحة','الكمية','السعر','الإجمالي']);
   s.rows.forEach(r=>{
     rows.push([r.date ? fmtDate(r.date) : '-', r.merchantName||'-', r.itemName, r.sku||'-', r.qty, r.price, (Number(r.qty)||0)*(Number(r.price)||0)]);
   });
@@ -3557,7 +3585,7 @@ async function exportDailySalesXlsx(){
   const rows = [['الإيجارات اليومية']];
   rows.push([s.titleText||'']);
   rows.push([]);
-  rows.push(['التاريخ','العميل','السيارة','الكود','الكمية','السعر','الإجمالي']);
+  rows.push(['التاريخ','العميل','السيارة','رقم اللوحة','الكمية','السعر','الإجمالي']);
   s.rows.forEach(r=>{
     rows.push([r.date ? fmtDate(r.date) : '-', r.merchantName||'-', r.itemName, r.sku||'-', r.qty, r.price, (Number(r.qty)||0)*(Number(r.price)||0)]);
   });
@@ -3808,7 +3836,7 @@ function renderOrders(){
 
       <div style="overflow-x:auto;">
         <table class="order-items-table">
-          <thead><tr><th>السيارة</th><th>الكود</th><th>الكمية</th><th>السعر/يوم</th><th>الإجمالي</th></tr></thead>
+          <thead><tr><th>السيارة</th><th>رقم اللوحة</th><th>الكمية</th><th>السعر/يوم</th><th>الإجمالي</th></tr></thead>
           <tbody>${itemsRows}</tbody>
         </table>
       </div>

@@ -2858,6 +2858,7 @@ function listenToSaleEntries(){
     renderRemainingStock();
     updateNotifications();
     populateDsFilterMerchant();
+    if(typeof renderOrders==='function') renderOrders();
   }, err=> showToast('خطأ في قراءة الإيجارات: '+err.message));
 }
 
@@ -3142,45 +3143,68 @@ function printOrderContract(orderId){
   const prof=merchantProfiles.find(p=>{ const ph=normPhoneDigits(order.merchantPhone); return ph && normPhoneDigits(p.phone)===ph; })||{};
   openContract({date:order.startDate, name:order.merchantName||prof.name||'', phone:order.merchantPhone||prof.phone||'',
     cars:(order.items||[]).map(it=>{ const car=items.find(i=>i.id===it.itemId)||{}; return {name:it.itemName||car.name||'', sku:it.sku||car.sku||'', price:it.price}; }),
-    start:order.startDate, end:order.endDate, days:order.days, total:orderTotalOf(order), paid:order.paid});
+    start:order.startDate, end:order.endDate, days:order.days, total:orderFinance(order).total, paid:orderFinance(order).paid});
 }
 
 /* ===== الدفعة المقدمة على الحجز ===== */
+/* قبل التحويل: المدفوع محفوظ على الحجز نفسه. بعد التحويل: المدفوع هو مجموع مدفوع إيجارات هذا الحجز (فتتزامن الدفعات من القسمين) */
+function orderFinance(order){
+  const rs = (order.convertedAt || order.status==='done')
+    ? saleEntries.filter(r=> r.sourceOrderId===order.id && r.sourceType!=='maintenance').sort((a,b)=> String(a.date||'').localeCompare(String(b.date||'')))
+    : [];
+  if(rs.length) return {converted:true, rentals:rs, total:rs.reduce((x,r)=>x+(Number(r.total)||0),0), paid:rs.reduce((x,r)=>x+(Number(r.paid)||0),0)};
+  return {converted:false, rentals:[], total:orderTotalOf(order), paid:Number(order.paid)||0};
+}
 let _orderPayId=null;
 function openOrderPayment(orderId){
   const order=orders.find(o=>o.id===orderId); if(!order) return;
   _orderPayId=orderId;
-  const total=orderTotalOf(order), paid=Number(order.paid)||0;
-  document.getElementById('orderPayTitle').textContent='💵 دفعة مقدمة: '+(order.merchantName||'');
+  const f=orderFinance(order);
+  document.getElementById('orderPayTitle').textContent='💵 دفعة: '+(order.merchantName||'');
   document.getElementById('orderPaySummary').innerHTML=
-    `<div style="display:flex;justify-content:space-between;"><span>الإجمالي المستحق</span><b>${fmt(total)} جنيه</b></div>
-     <div style="display:flex;justify-content:space-between;"><span>المدفوع حتى الآن</span><b>${fmt(paid)} جنيه</b></div>
-     <div style="display:flex;justify-content:space-between;color:var(--red);"><span>المتبقي</span><b>${fmt(Math.max(0,total-paid))} جنيه</b></div>`;
+    `<div style="display:flex;justify-content:space-between;"><span>الإجمالي المستحق</span><b>${fmt(f.total)} جنيه</b></div>
+     <div style="display:flex;justify-content:space-between;"><span>المدفوع حتى الآن</span><b>${fmt(f.paid)} جنيه</b></div>
+     <div style="display:flex;justify-content:space-between;color:var(--red);"><span>المتبقي</span><b>${fmt(Math.max(0,f.total-f.paid))} جنيه</b></div>`;
   document.getElementById('orderPayAmount').value='';
-  document.getElementById('orderPayResetBtn').style.display = paid>0 ? '' : 'none';
+  document.getElementById('orderPayResetBtn').style.display = f.paid>0 ? '' : 'none';
   document.getElementById('orderPayModalOverlay').classList.add('active');
 }
 function orderPayQuick(f){
   const order=orders.find(o=>o.id===_orderPayId); if(!order) return;
-  const rest=Math.max(0, orderTotalOf(order)-(Number(order.paid)||0));
-  document.getElementById('orderPayAmount').value = Math.round(rest*f*100)/100;
+  const fin=orderFinance(order);
+  document.getElementById('orderPayAmount').value = Math.round(Math.max(0,fin.total-fin.paid)*f*100)/100;
 }
 function saveOrderPayment(){
   const order=orders.find(o=>o.id===_orderPayId); if(!order) return;
-  const v=Number(document.getElementById('orderPayAmount').value);
-  const total=orderTotalOf(order), paid=Number(order.paid)||0;
+  const v=Number(document.getElementById('orderPayAmount').value), f=orderFinance(order);
   if(!v||v<=0){ showToast('أدخل مبلغاً صحيحاً'); return; }
-  if(paid+v>total){ showToast('المبلغ أكبر من المتبقي ('+fmt(total-paid)+')'); return; }
-  db.collection('bookingRequests').doc(_orderPayId).update({paid:paid+v, paidUpdatedAt:FVX.serverTimestamp()})
-    .then(()=>{ closeModal('orderPayModalOverlay'); showToast('تم تسجيل الدفعة المقدمة'); })
-    .catch(e=>showToast('خطأ: '+e.message));
+  if(f.paid+v>f.total){ showToast('المبلغ أكبر من المتبقي ('+fmt(f.total-f.paid)+')'); return; }
+  const done=()=>{ closeModal('orderPayModalOverlay'); showToast('تم تسجيل الدفعة'); };
+  const fail=e=>showToast('خطأ: '+e.message);
+  if(f.converted){
+    /* الحجز اتحوّل: وزّع الدفعة على إيجاراته بالترتيب فتظهر في الإيجارات اليومية */
+    let left=v; const batch=db.batch();
+    f.rentals.forEach(r=>{
+      if(left<=0) return;
+      const room=Math.max(0,(Number(r.total)||0)-(Number(r.paid)||0)), add=Math.min(room,left);
+      if(add>0){ batch.update(db.collection('rentals').doc(r.id),{paid:(Number(r.paid)||0)+add}); left-=add; }
+    });
+    batch.commit().then(done).catch(fail);
+  }else{
+    db.collection('bookingRequests').doc(_orderPayId).update({paid:f.paid+v, paidUpdatedAt:FVX.serverTimestamp()}).then(done).catch(fail);
+  }
 }
 function resetOrderPayment(){
-  if(!_orderPayId) return;
+  const order=orders.find(o=>o.id===_orderPayId); if(!order) return;
   if(!confirm('تصفير المبلغ المدفوع لهذا الحجز؟')) return;
-  db.collection('bookingRequests').doc(_orderPayId).update({paid:0, paidUpdatedAt:FVX.serverTimestamp()})
-    .then(()=>{ closeModal('orderPayModalOverlay'); showToast('تم تصفير المدفوع'); })
-    .catch(e=>showToast('خطأ: '+e.message));
+  const f=orderFinance(order);
+  const done=()=>{ closeModal('orderPayModalOverlay'); showToast('تم تصفير المدفوع'); }, fail=e=>showToast('خطأ: '+e.message);
+  if(f.converted){
+    const batch=db.batch(); f.rentals.forEach(r=> batch.update(db.collection('rentals').doc(r.id),{paid:0}));
+    batch.commit().then(done).catch(fail);
+  }else{
+    db.collection('bookingRequests').doc(_orderPayId).update({paid:0, paidUpdatedAt:FVX.serverTimestamp()}).then(done).catch(fail);
+  }
 }
 function renderCarReport(){
   const f=document.getElementById('crFrom'), tt=document.getElementById('crTo'); if(!f||!tt) return;
@@ -4033,7 +4057,7 @@ function renderOrders(){
         <span>الإجمالي الكلي</span>
         <span class="order-total-val">${fmt(order.total)} جنيه</span>
       </div>
-      ${(()=>{ const _t=orderTotalOf(order), _p=Number(order.paid)||0, _r=_t-_p;
+      ${(()=>{ const _f=orderFinance(order), _t=_f.total, _p=_f.paid, _r=_t-_p;
         return (order.status==='cancelled' && !_p) ? '' : `<div class="order-total-row" style="border-top:1px dashed var(--line);margin-top:0;font-size:13px;font-weight:700;">
           <span>💰 المدفوع مقدماً: ${fmt(_p)} جنيه</span>
           <span style="color:${_r>0?'var(--red)':'var(--green)'};">${_r>0?'المتبقي: '+fmt(_r)+' جنيه':'✔ مسدّد بالكامل'}</span>
@@ -4050,8 +4074,8 @@ function renderOrders(){
           <button class="btn btn-outline btn-sm" onclick="updateOrderStatus('${order.id}','done')">📦 تم التسليم</button>
           <button class="btn btn-outline btn-sm" onclick="convertOrderToSales('${order.id}')">💾 تحويل لإيجارات</button>
         ` : ''}
-        ${(order.status==='pending'||order.status==='confirmed') ? `
-          <button class="btn btn-gold btn-sm" onclick="openOrderPayment('${order.id}')">💵 دفعة مقدمة</button>
+        ${(order.status==='pending'||order.status==='confirmed'||order.status==='done') ? `
+          <button class="btn btn-gold btn-sm" onclick="openOrderPayment('${order.id}')">💵 ${order.status==='done'?'دفعة':'دفعة مقدمة'}</button>
         ` : ''}
         ${order.status!=='cancelled' ? `
           <button class="btn btn-outline btn-sm" onclick="printOrderContract('${order.id}')">📄 عقد</button>

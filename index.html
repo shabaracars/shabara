@@ -1701,6 +1701,10 @@ function lbkMap(o){
   if(o.pickupLat!=null && o.pickupLng!=null) return 'https://www.google.com/maps?q='+o.pickupLat+','+o.pickupLng;
   return o.pickupAddress ? 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(o.pickupAddress) : '';
 }
+function lbkDropMap(o){
+  if(o.dropLat!=null && o.dropLng!=null) return 'https://www.google.com/maps?q='+o.dropLat+','+o.dropLng;
+  return o.dropAddress ? 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(o.dropAddress) : '';
+}
 function renderLimoBookings(){
   const box=document.getElementById('limoBkContainer'); if(!box) return;
   const f=document.getElementById('limoBkFilter').value;
@@ -1722,8 +1726,7 @@ function renderLimoBookings(){
         ${cell('📅 الموعد',e((o.date||'')+' — '+(o.time||'')))}
         ${o.tripType==='round'?cell('↩️ موعد العودة',e((o.returnDate||'')+' — '+(o.returnTime||''))):''}
         ${cell('📍 مكان الاستلام',e(o.pickupAddress||'—')+(map?` <a class="lbk-link" href="${map}" target="_blank" rel="noopener">🗺️ الخريطة</a>`:''))}
-        ${cell('🏁 مكان التوصيل',e(o.dropAddress))}
-        ${cell('✈️ رقم الرحلة',e(o.flightNo))}
+        ${(o.dropAddress||o.dropLat!=null)?cell('🏁 مكان التوصيل',e(o.dropAddress||'—')+(lbkDropMap(o)?` <a class="lbk-link" href="${lbkDropMap(o)}" target="_blank" rel="noopener">🗺️ الخريطة</a>`:'')):''}
         ${cell('👥 الركاب / الحقائب',fmt(o.passengers)+' / '+fmt(o.bags))}
         ${cell('💳 الدفع',e(o.paymentMethod))}
       </div>

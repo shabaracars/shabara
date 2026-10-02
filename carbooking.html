@@ -718,13 +718,19 @@ setTimeout(function(){
       <div class="lb-f"><label>مكان الاستلام (من أين تريد أن نأخذك؟)</label>
         <input id="lb_pickup" oninput="lb.addrAuto=false" placeholder="العنوان بالتفصيل: المنطقة، الشارع، علامة مميزة">
         <div class="lb-locbtns">
-          <button type="button" class="lb-gps" id="lb_gps" onclick="lbLocate()">📍 موقعي الحالي</button>
-          <button type="button" class="lb-gps" id="lb_mapBtn" onclick="openLbMap()">🗺️ اختر من الخريطة</button>
+          <button type="button" class="lb-gps" id="lb_gps" onclick="lbLocate('pickup')">📍 موقعي الحالي</button>
+          <button type="button" class="lb-gps" id="lb_mapBtn" onclick="openLbMap('pickup')">🗺️ اختر من الخريطة</button>
         </div>
         <div class="lb-hint" id="lb_gpsHint">حدد موقعك بالـ GPS أو من الخريطة ليصل السائق إليك بدقة</div>
       </div>
-      <div class="lb-f"><label>مكان التوصيل بالتفصيل (اختياري)</label><input id="lb_drop" placeholder="اسم الفندق أو العنوان داخل الوجهة"></div>
-      <div class="lb-f" id="lb_flightBox" style="display:none;"><label>✈️ رقم الرحلة الجوية</label><input id="lb_flight" dir="ltr" placeholder="مثال: MS 777"></div>
+      <div class="lb-f"><label>مكان التوصيل (اختياري)</label>
+        <input id="lb_drop" oninput="lb.dropAuto=false" placeholder="اسم الفندق أو العنوان داخل الوجهة">
+        <div class="lb-locbtns">
+          <button type="button" class="lb-gps" id="lb_dgps" onclick="lbLocate('drop')">📍 موقعي الحالي</button>
+          <button type="button" class="lb-gps" id="lb_dmapBtn" onclick="openLbMap('drop')">🗺️ اختر من الخريطة</button>
+        </div>
+        <div class="lb-hint" id="lb_dgpsHint">يمكنك تحديد مكان التوصيل بدقة على الخريطة (اختياري)</div>
+      </div>
 
       <div class="lb-sec">👥 الركاب والأمتعة</div>
       <div class="lb-2">
@@ -1041,15 +1047,15 @@ function renderLimo(){
 /* ═══════════════════════════════════════
    LIMO BOOKING
 ═══════════════════════════════════════ */
-let lb={type:'sedan',trip:'oneway',lat:null,lng:null,acc:null};
+let lb={type:'sedan',trip:'oneway',lat:null,lng:null,acc:null,addrAuto:false,dLat:null,dLng:null,dAcc:null,dropAuto:false};
 function openLimoBook(routeId){
   const act=limoPrices.filter(r=>r.active!==false);
   document.getElementById('lb_route').innerHTML=act.map(r=>'<option value="'+r.id+'">'+esc(r.route)+'</option>').join('');
   if(routeId) document.getElementById('lb_route').value=routeId;
-  lb={type:limoType,trip:'oneway',lat:null,lng:null,acc:null,addrAuto:false};
+  lb={type:limoType,trip:'oneway',lat:null,lng:null,acc:null,addrAuto:false,dLat:null,dLng:null,dAcc:null,dropAuto:false};
   const today=localToday();
   ['lb_date','lb_rdate'].forEach(i=>{const e=document.getElementById(i); e.min=today; e.value='';});
-  ['lb_time','lb_rtime','lb_pickup','lb_drop','lb_flight','lb_note'].forEach(i=>document.getElementById(i).value='');
+  ['lb_time','lb_rtime','lb_pickup','lb_drop','lb_note'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('lb_pax').value=1; document.getElementById('lb_bags').value=0;
   document.getElementById('lb_name').value=localStorage.getItem('mpMerchantName')||'';
   document.getElementById('lb_phone').value=localStorage.getItem('mpMerchantPhone')||'';
@@ -1069,7 +1075,6 @@ function lbUpdate(){
   const r=lbRoute(); if(!r) return;
   document.getElementById('lb_price').textContent=fmt(r[lb.type])+' جنيه';
   document.getElementById('lb_priceNote').textContent = lb.trip==='round' ? 'السعر لرحلة الذهاب — يؤكد فريقنا سعر الذهاب والعودة معك' : '';
-  document.getElementById('lb_flightBox').style.display = /مطار/.test(r.route||'') ? '' : 'none';
 }
 /* ── GPS + خريطة اختيار الموقع ── */
 function getGps(){
@@ -1089,37 +1094,46 @@ function reverseGeo(lat,lng){
   return fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=ar&lat='+lat+'&lon='+lng)
     .then(r=>r.json()).then(d=>d.display_name||'').catch(()=>'');
 }
+const LBP={
+  pickup:{lat:'lat',lng:'lng',acc:'acc',auto:'addrAuto',inp:'lb_pickup',gps:'lb_gps',map:'lb_mapBtn',hint:'lb_gpsHint',
+          name:'مكان الاستلام',idle:'حدد موقعك بالـ GPS أو من الخريطة ليصل السائق إليك بدقة'},
+  drop:  {lat:'dLat',lng:'dLng',acc:'dAcc',auto:'dropAuto',inp:'lb_drop',gps:'lb_dgps',map:'lb_dmapBtn',hint:'lb_dgpsHint',
+          name:'مكان التوصيل',idle:'يمكنك تحديد مكان التوصيل بدقة على الخريطة (اختياري)'}
+};
 function lbRefreshLoc(){
-  const h=document.getElementById('lb_gpsHint'), g=document.getElementById('lb_gps'), m=document.getElementById('lb_mapBtn');
-  if(lb.lat==null){
-    g.classList.remove('ok'); g.textContent='📍 موقعي الحالي'; m.textContent='🗺️ اختر من الخريطة';
-    h.style.color=''; h.textContent='حدد موقعك بالـ GPS أو من الخريطة ليصل السائق إليك بدقة'; return;
-  }
-  g.classList.add('ok'); g.textContent='✓ تم تحديد الموقع'; m.textContent='🗺️ تعديل على الخريطة';
-  h.style.color='var(--green)';
-  h.textContent='✅ تم حفظ موقعك على الخريطة'+(lb.acc?' (دقة ~'+lb.acc+' متر)':'')+' — سيصل للسائق مباشرة';
+  Object.keys(LBP).forEach(t=>{
+    const P=LBP[t], h=document.getElementById(P.hint), g=document.getElementById(P.gps), m=document.getElementById(P.map);
+    if(lb[P.lat]==null){
+      g.classList.remove('ok'); g.textContent='📍 موقعي الحالي'; m.textContent='🗺️ اختر من الخريطة';
+      h.style.color=''; h.textContent=P.idle; return;
+    }
+    g.classList.add('ok'); g.textContent='✓ تم تحديد الموقع'; m.textContent='🗺️ تعديل على الخريطة';
+    h.style.color='var(--green)';
+    h.textContent='✅ تم حفظ '+P.name+' على الخريطة'+(lb[P.acc]?' (دقة ~'+lb[P.acc]+' متر)':'')+' — سيصل للسائق مباشرة';
+  });
 }
-function fillPickup(addr){
-  const i=document.getElementById('lb_pickup');
-  if(addr && (!i.value.trim() || lb.addrAuto)){ i.value=addr; lb.addrAuto=true; }
+function fillAddr(t,addr){
+  const P=LBP[t], i=document.getElementById(P.inp);
+  if(addr && (!i.value.trim() || lb[P.auto])){ i.value=addr; lb[P.auto]=true; }
 }
-function setLbLocation(lat,lng,acc,addr){
-  lb.lat=lat; lb.lng=lng; lb.acc=acc||null;
+function setLbLocation(t,lat,lng,acc,addr){
+  const P=LBP[t];
+  lb[P.lat]=lat; lb[P.lng]=lng; lb[P.acc]=acc||null;
   lbRefreshLoc();
-  if(addr!==undefined) fillPickup(addr);
-  else reverseGeo(lat,lng).then(fillPickup);
+  if(addr!==undefined) fillAddr(t,addr);
+  else reverseGeo(lat,lng).then(a=>fillAddr(t,a));
 }
-function lbLocate(){
-  const g=document.getElementById('lb_gps'), h=document.getElementById('lb_gpsHint');
+function lbLocate(t){
+  const P=LBP[t], g=document.getElementById(P.gps), h=document.getElementById(P.hint);
   g.textContent='⏳ جاري تحديد موقعك...'; h.style.color='';
   getGps().then(pos=>{
-    setLbLocation(pos.coords.latitude,pos.coords.longitude,Math.round(pos.coords.accuracy||0));
+    setLbLocation(t,pos.coords.latitude,pos.coords.longitude,Math.round(pos.coords.accuracy||0));
   }).catch(e=>{
     lbRefreshLoc(); h.style.color='var(--red)'; h.textContent=gpsErr(e);
   });
 }
 
-let lbmMap=null, lbmLoad=null, lbmTimer=null, lbmTok=0, lbmAddr='';
+let lbmT='pickup', lbmMap=null, lbmLoad=null, lbmTimer=null, lbmTok=0, lbmAddr='';
 function loadLeaflet(){
   if(window.L) return Promise.resolve();
   if(lbmLoad) return lbmLoad;
@@ -1133,18 +1147,23 @@ function loadLeaflet(){
   });
   return lbmLoad;
 }
-function openLbMap(){
+function openLbMap(t){
+  lbmT=t||'pickup'; const P=LBP[lbmT];
   document.getElementById('lbMapOverlay').classList.add('open');
   document.getElementById('lbm_addr').textContent='⏳ جاري تحميل الخريطة...';
+  document.getElementById('lbm_q').value='';
+  document.getElementById('lbm_q').placeholder='ابحث عن '+P.name+'...';
   loadLeaflet().then(()=>{
-    const has=lb.lat!=null, start=has?[lb.lat,lb.lng]:[30.0444,31.2357];
+    const own=lb[P.lat]!=null, nearPickup=(lbmT==='drop'&&lb.lat!=null);
+    const start=own?[lb[P.lat],lb[P.lng]]:(nearPickup?[lb.lat,lb.lng]:[30.0444,31.2357]);
+    const zoom=own?17:(nearPickup?12:11);
     if(!lbmMap){
-      lbmMap=L.map('lbm_map').setView(start,has?17:11);
+      lbmMap=L.map('lbm_map').setView(start,zoom);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(lbmMap);
       lbmMap.on('moveend',lbmMoved);
-    }else lbmMap.setView(start,has?17:lbmMap.getZoom());
+    }else lbmMap.setView(start,zoom);
     setTimeout(()=>{ lbmMap.invalidateSize(); lbmMoved(); },60);
-    if(!has) lbmLocate(true);
+    if(!own && !nearPickup) lbmLocate(true);
   }).catch(()=>{ closeLbMap(); toast('⚠️ تعذر تحميل الخريطة، تأكد من الاتصال بالإنترنت'); });
 }
 function closeLbMap(){ document.getElementById('lbMapOverlay').classList.remove('open'); }
@@ -1174,7 +1193,7 @@ function lbmSearch(){
 function lbmConfirm(){
   if(!lbmMap) return;
   const c=lbmMap.getCenter();
-  setLbLocation(c.lat,c.lng,null,lbmAddr||undefined);
+  setLbLocation(lbmT,c.lat,c.lng,null,lbmAddr||undefined);
   closeLbMap();
   toast('✅ تم تحديد الموقع');
 }
@@ -1207,7 +1226,7 @@ function submitLimo(){
     date:v('lb_date'), time:v('lb_time'),
     returnDate: lb.trip==='round'?v('lb_rdate'):'', returnTime: lb.trip==='round'?v('lb_rtime'):'',
     pickupAddress:v('lb_pickup'), pickupLat:lb.lat, pickupLng:lb.lng, pickupAccuracy:lb.acc,
-    dropAddress:v('lb_drop'), flightNo:v('lb_flight'),
+    dropAddress:v('lb_drop'), dropLat:lb.dLat, dropLng:lb.dLng, dropAccuracy:lb.dAcc,
     passengers:pax, bags:parseInt(v('lb_bags'))||0,
     customerName:v('lb_name'), customerPhone:ph, paymentMethod:v('lb_pay'), note:v('lb_note'),
     status:'pending', createdAt:FVX.serverTimestamp(), source:'merchant-portal'

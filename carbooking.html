@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>بوابة حجز السيارات</title>
+<title>Shabara Motors</title>
 <link rel="icon" type="image/png" href="001.png">
 <link rel="shortcut icon" href="001.png">
 <link rel="apple-touch-icon" href="001.png">
@@ -429,7 +429,7 @@ setTimeout(function(){
     <div class="setup-logo">
       <div class="icon"><img src="001.png" alt="لوجو" onerror="this.parentNode.textContent='🏪'"></div>
       <div>
-        <h1>بوابة حجز السيارات</h1>
+        <h1>Shabara Motors</h1>
         <p>أدخل بيانات Firebase للاتصال بقاعدة البيانات</p>
       </div>
     </div>
@@ -457,7 +457,7 @@ setTimeout(function(){
       <div class="brand">
         <div class="brand-icon"><img src="001.png" alt="لوجو" onerror="this.parentNode.textContent='🏪'"></div>
         <div>
-          <div class="brand-name" id="storeNameDisplay">بوابة حجز السيارات</div>
+          <div class="brand-name" id="storeNameDisplay">Shabara Motors</div>
           <div class="brand-sub">احجز سيارتك مباشرة</div>
         </div>
       </div>
@@ -607,7 +607,7 @@ let allItems = [];
 let saleEntries = [];
 let merchantTxs = [];
 let cart = []; // [{itemId, itemName, color, qty, price, sku}]
-let storeName = 'بوابة حجز السيارات';
+let storeName = 'Shabara Motors';
 
 /* ═══════════════════════════════════════
    COLOR HELPERS
@@ -657,7 +657,7 @@ function initApp(){
   const authDomain = document.getElementById('s_authDomain').value.trim();
   const projectId  = document.getElementById('s_projectId').value.trim();
   const appId      = document.getElementById('s_appId').value.trim();
-  storeName        = document.getElementById('s_storeName').value.trim() || 'بوابة حجز السيارات';
+  storeName        = document.getElementById('s_storeName').value.trim() || 'Shabara Motors';
 
   if(!apiKey||!projectId){
     showError('من فضلك أدخل API Key وProject ID على الأقل');return;
@@ -804,7 +804,7 @@ function startDemo(){
   Object.values(DS.cars||{}).forEach(c=>{ delete c.colors; delete c.colorStock; delete c.colorImages; c.color=''; });
   db=demoDB();
   window.addEventListener('storage',e=>{ if(e.key==='carapp_demo_data') db._reload(); });
-  storeName='تأجير السيارات (وضع تجريبي)';
+  storeName='Shabara Motors (وضع تجريبي)';
   document.getElementById('loadingScreen').style.display='none';
   document.getElementById('setupScreen').style.display='none';
   startApp();
@@ -1144,7 +1144,7 @@ function ensureMerchantProfile(name, phone){
       name: name,
       phone: normPhone,
       address: '',
-      notes: 'تمت الإضافة تلقائيًا من بوابة حجز السيارات',
+      notes: 'تمت الإضافة تلقائيًا من Shabara Motors',
       createdAt: FVX.serverTimestamp()
     });
   }).catch(e=> console.warn('تعذر إنشاء/تحديث بيانات العميل تلقائيًا:', e.message));

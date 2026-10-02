@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>تأجير السيارات</title>
+<title>Shabara Motors</title>
 <link rel="icon" type="image/png" href="001.png">
 <link rel="shortcut icon" href="001.png">
 <link rel="apple-touch-icon" href="001.png">
@@ -810,7 +810,7 @@ setTimeout(function(){
 </script>
 
 <header>
-  <div class="brand"><img src="001.png" alt="لوجو" class="brand-logo" onerror="this.style.display='none'"> تأجير السيارات</div>
+  <div class="brand"><img src="001.png" alt="لوجو" class="brand-logo" onerror="this.style.display='none'"> Shabara Motors</div>
   <div style="display:flex; align-items:center; gap:16px;">
     <button id="backupToggle" onclick="openBackupModal()" title="نسخ احتياطي" aria-label="النسخ الاحتياطي" style="background:none; border:1px solid rgba(255,255,255,.3); color:#fff; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:.15s;">💾</button>
     
@@ -2382,7 +2382,7 @@ function deserializeDocForImport(docData){
 function exportFullBackup(){
   const backup = {
     exportedAt: new Date().toISOString(),
-    app: 'تأجير السيارات',
+    app: 'Shabara Motors',
     items: items.map(serializeDocForExport),
     merchantTxs: merchantTxs.map(serializeDocForExport),
     merchantProfiles: merchantProfiles.map(serializeDocForExport),
@@ -2394,7 +2394,7 @@ function exportFullBackup(){
   const blob = new Blob([json], {type:'application/json;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `نسخة-احتياطية-تأجير السيارات-${localToday()}.json`;
+  a.href = url; a.download = `نسخة-احتياطية-Shabara Motors-${localToday()}.json`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast('تم تصدير النسخة الاحتياطية');

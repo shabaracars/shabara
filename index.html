@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Shabara Motors</title>
 <link rel="manifest" href="manifest-admin.json">
 <meta name="theme-color" content="#1B2A4A">
@@ -833,6 +833,47 @@
 
 /* iOS: منع التكبير التلقائي عند الضغط على الخانات */
 @supports (-webkit-touch-callout:none){ input,select,textarea{font-size:16px !important;} }
+
+/* ─── MOBILE BOTTOM NAV ─── */
+#bottomNav,#moreSheet,.bk-tabs{display:none;}
+@media screen and (max-width:720px){
+  body.app-ready nav#mainNav{display:none !important;}
+  body.app-ready{padding-bottom:calc(74px + env(safe-area-inset-bottom,0px));}
+  body.app-ready .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px));}
+  body.app-ready #bottomNav{
+    display:flex; position:fixed; bottom:0; left:0; right:0; z-index:120;
+    background:var(--nav-bg); border-top:1px solid rgba(255,255,255,.12);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px)); box-shadow:0 -4px 18px rgba(0,0,0,.25);
+  }
+  #bottomNav button{
+    flex:1; background:none; border:none; color:rgba(255,255,255,.65); font:inherit; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:2px; padding:4px 2px; position:relative; border-radius:10px;
+  }
+  #bottomNav button .bn-ico{font-size:21px; line-height:1.2;}
+  #bottomNav button .bn-lbl{font-size:11px; font-weight:700;}
+  #bottomNav button.active{color:var(--gold);}
+  #bottomNav button.active .bn-lbl{color:var(--gold);}
+  .bn-badge{position:absolute; top:0; right:calc(50% - 22px); background:#B4432F; color:#fff; font-size:10px; font-weight:800; min-width:17px; height:17px; line-height:17px; border-radius:20px; padding:0 4px; text-align:center;}
+  #moreSheet.open{display:block; position:fixed; inset:0; z-index:130; background:rgba(0,0,0,.5);}
+  #moreSheet .ms-panel{
+    position:absolute; bottom:0; left:0; right:0; background:var(--paper); color:var(--ink);
+    border-radius:20px 20px 0 0; padding:10px 16px calc(24px + env(safe-area-inset-bottom,0px)); animation:msUp .22s ease;
+  }
+  @keyframes msUp{from{transform:translateY(40px);opacity:0;}to{transform:none;opacity:1;}}
+  .ms-handle{width:40px; height:4px; background:var(--line); border-radius:2px; margin:0 auto 14px;}
+  .ms-title{font-size:15px; font-weight:800; margin-bottom:12px;}
+  .ms-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+  .ms-grid button{
+    background:var(--cream); border:1px solid var(--line); border-radius:14px; padding:14px 6px; font:inherit; color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer;
+  }
+  .ms-grid button .ms-ico{font-size:26px;}
+  .ms-grid button span:last-child{font-size:12.5px; font-weight:700; text-align:center; line-height:1.4;}
+  .bk-tabs{display:flex; gap:6px; background:var(--cream); border:1px solid var(--line); border-radius:12px; padding:4px; margin-bottom:14px;}
+  .bk-tabs button{flex:1; border:none; background:none; font:inherit; font-weight:800; font-size:13.5px; color:var(--muted); padding:9px 6px; border-radius:9px; cursor:pointer; position:relative;}
+  .bk-tabs button.on{background:var(--solid); color:#fff;}
+  .bk-tabs .tb{background:#B4432F; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:20px; margin-right:4px;}
+}
 </style>
 </head>
 <body>
@@ -873,6 +914,29 @@ setTimeout(function(){
   <button data-view="limobookings">🚖 حجوزات الليموزين <span id="limoNavBadge" style="display:none;background:#B4432F;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-right:4px;"></span></button>
   <button data-view="orders">📋 الحجوزات <span id="ordersNavBadge" style="display:none;background:#B4432F;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-right:4px;"></span></button>
 </nav>
+
+<!-- ===== شريط التنقل السفلي (الموبايل) ===== -->
+<div id="bottomNav">
+  <button data-bn="dashboard" class="active" onclick="bnGo('dashboard')"><span class="bn-ico">🏠</span><span class="bn-lbl">الرئيسية</span></button>
+  <button data-bn="bookings" onclick="bnGo('bookings')"><span class="bn-ico">📋</span><span class="bn-lbl">الحجوزات</span><span id="bnBkBadge" class="bn-badge" style="display:none;"></span></button>
+  <button data-bn="dailysales" onclick="bnGo('dailysales')"><span class="bn-ico">🗓️</span><span class="bn-lbl">الإيجارات</span></button>
+  <button data-bn="items" onclick="bnGo('items')"><span class="bn-ico">🚗</span><span class="bn-lbl">السيارات</span></button>
+  <button data-bn="more" onclick="bnGo('more')"><span class="bn-ico">☰</span><span class="bn-lbl">المزيد</span></button>
+</div>
+<div id="moreSheet" onclick="if(event.target===this)toggleMore(false)">
+  <div class="ms-panel">
+    <div class="ms-handle"></div>
+    <div class="ms-title">المزيد من الأقسام</div>
+    <div class="ms-grid">
+      <button onclick="moreGo('remaining')"><span class="ms-ico">✅</span><span>السيارات المتاحة</span></button>
+      <button onclick="moreGo('movements')"><span class="ms-ico">🔄</span><span>سجل الحركة</span></button>
+      <button onclick="moreGo('carreport')"><span class="ms-ico">📈</span><span>تقرير السيارات</span></button>
+      <button onclick="moreGo('merchants')"><span class="ms-ico">👥</span><span>العملاء</span></button>
+      <button onclick="moreGo('limo')"><span class="ms-ico">🚐</span><span>أسعار الليموزين</span></button>
+    </div>
+  </div>
+</div>
+
 
 <main>
 
@@ -1161,6 +1225,10 @@ setTimeout(function(){
 
   <!-- ========== LIMO BOOKINGS VIEW ========== -->
   <div id="view-limobookings" class="view">
+    <div class="bk-tabs">
+      <button class="" onclick="switchView('orders')">🚗 حجوزات السيارات <span class="tb bkTabO" style="display:none;"></span></button>
+      <button class="on" onclick="switchView('limobookings')">🚖 حجوزات الليموزين <span class="tb bkTabL" style="display:none;"></span></button>
+    </div>
     <div class="section-head" style="margin-top:0;">
       <div>
         <div class="page-title">🚖 حجوزات الليموزين</div>
@@ -1194,6 +1262,10 @@ setTimeout(function(){
 
   <!-- ========== ORDERS VIEW ========== -->
   <div id="view-orders" class="view">
+    <div class="bk-tabs">
+      <button class="on" onclick="switchView('orders')">🚗 حجوزات السيارات <span class="tb bkTabO" style="display:none;"></span></button>
+      <button class="" onclick="switchView('limobookings')">🚖 حجوزات الليموزين <span class="tb bkTabL" style="display:none;"></span></button>
+    </div>
     <div class="section-head" style="margin-top:0;">
       <div>
         <div class="page-title">📋 حجوزات العملاء</div>
@@ -1612,7 +1684,7 @@ function initFirebaseWithConfig(config){
     firebase.auth().onAuthStateChanged(function(user){
       if(!user) return;
       document.getElementById('view-loading').classList.remove('active');
-      document.getElementById('mainNav').style.display = 'flex';
+      document.getElementById('mainNav').style.display = 'flex'; document.body.classList.add('app-ready');
       setConnStatus(true);
       switchView('dashboard');
       listenToItems();
@@ -1681,6 +1753,30 @@ function switchView(name){
   if(name==='orders') renderOrders();
   if(name==='limo') renderLimoPrices();
   if(name==='limobookings') renderLimoBookings();
+  if(name==='orders'||name==='limobookings') lastBkView=name;
+  const bnMap={orders:'bookings',limobookings:'bookings',remaining:'more',movements:'more',carreport:'more',merchants:'more',limo:'more'};
+  document.querySelectorAll('#bottomNav button').forEach(b=>b.classList.toggle('active', b.dataset.bn===(bnMap[name]||name)));
+  document.querySelectorAll('.bk-tabs').forEach(t=>{ const bs=t.querySelectorAll('button'); bs[0].classList.toggle('on',name==='orders'); bs[1].classList.toggle('on',name==='limobookings'); });
+  window.scrollTo(0,0);
+}
+
+let lastBkView='orders';
+function bnGo(name){
+  if(name==='bookings'){
+    const po=orders.filter(o=>o.status==='pending').length, pl=limoBookings.filter(o=>o.status==='pending').length;
+    switchView(po===0&&pl>0?'limobookings':lastBkView); return;
+  }
+  if(name==='more'){ toggleMore(true); return; }
+  switchView(name);
+}
+function toggleMore(open){ document.getElementById('moreSheet').classList.toggle('open',open); }
+function moreGo(v){ toggleMore(false); switchView(v); }
+function updateBkBadges(){
+  const po=orders.filter(o=>o.status==='pending').length, pl=limoBookings.filter(o=>o.status==='pending').length;
+  const set=(el,n)=>{ el.textContent=n; el.style.display=n>0?'inline-block':'none'; };
+  set(document.getElementById('bnBkBadge'),po+pl);
+  document.querySelectorAll('.bkTabO').forEach(e=>set(e,po));
+  document.querySelectorAll('.bkTabL').forEach(e=>set(e,pl));
 }
 
 
@@ -1691,7 +1787,7 @@ const LBK_ST={pending:'جديد',confirmed:'مؤكد',done:'تم التنفيذ'
 function listenToLimoBookings(){
   db.collection('limoBookings').orderBy('createdAt','desc').onSnapshot(snap=>{
     limoBookings=[]; snap.forEach(d=>limoBookings.push({id:d.id,...d.data()}));
-    renderLimoBookings();
+    renderLimoBookings(); setTimeout(updateBkBadges,0);
     const n=limoBookings.filter(o=>o.status==='pending').length, b=document.getElementById('limoNavBadge');
     if(b){ b.textContent=n; b.style.display=n>0?'inline-block':'none'; }
   }, err=> console.warn('limoBookings:', err.message));
@@ -4312,7 +4408,7 @@ function listenToOrders(){
   }, err=>{ console.warn('orders:', err.message); });
 }
 
-function updateOrdersBadge(){
+function updateOrdersBadge(){ setTimeout(updateBkBadges,0);
   const pending = orders.filter(o=> o.status === 'pending').length;
   const badge = document.getElementById('ordersNavBadge');
   if(!badge) return;
@@ -4626,7 +4722,7 @@ function startDemo(){
   db=demoDB(); storage=demoStorage;
   window.addEventListener('storage',e=>{ if(e.key==='carapp_demo_data') db._reload(); });
   ['view-setup','view-loading'].forEach(i=>document.getElementById(i).classList.remove('active'));
-  document.getElementById('mainNav').style.display='flex';
+  document.getElementById('mainNav').style.display='flex'; document.body.classList.add('app-ready');
   setConnStatus(true);
   const cs=document.getElementById('connStatus');
   document.getElementById('connText').textContent='وضع تجريبي (محلي) — اضغط للإعداد';

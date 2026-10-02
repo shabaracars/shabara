@@ -726,7 +726,6 @@ setTimeout(function(){
       <div class="lb-f"><label>مكان التوصيل (اختياري)</label>
         <input id="lb_drop" oninput="lb.dropAuto=false" placeholder="اسم الفندق أو العنوان داخل الوجهة">
         <div class="lb-locbtns">
-          <button type="button" class="lb-gps" id="lb_dgps" onclick="lbLocate('drop')">📍 موقعي الحالي</button>
           <button type="button" class="lb-gps" id="lb_dmapBtn" onclick="openLbMap('drop')">🗺️ اختر من الخريطة</button>
         </div>
         <div class="lb-hint" id="lb_dgpsHint">يمكنك تحديد مكان التوصيل بدقة على الخريطة (اختياري)</div>
@@ -1104,10 +1103,10 @@ function lbRefreshLoc(){
   Object.keys(LBP).forEach(t=>{
     const P=LBP[t], h=document.getElementById(P.hint), g=document.getElementById(P.gps), m=document.getElementById(P.map);
     if(lb[P.lat]==null){
-      g.classList.remove('ok'); g.textContent='📍 موقعي الحالي'; m.textContent='🗺️ اختر من الخريطة';
+      if(g){ g.classList.remove('ok'); g.textContent='📍 موقعي الحالي'; } m.textContent='🗺️ اختر من الخريطة';
       h.style.color=''; h.textContent=P.idle; return;
     }
-    g.classList.add('ok'); g.textContent='✓ تم تحديد الموقع'; m.textContent='🗺️ تعديل على الخريطة';
+    if(g){ g.classList.add('ok'); g.textContent='✓ تم تحديد الموقع'; } m.textContent='🗺️ تعديل على الخريطة';
     h.style.color='var(--green)';
     h.textContent='✅ تم حفظ '+P.name+' على الخريطة'+(lb[P.acc]?' (دقة ~'+lb[P.acc]+' متر)':'')+' — سيصل للسائق مباشرة';
   });

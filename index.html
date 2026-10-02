@@ -834,16 +834,14 @@
 /* iOS: منع التكبير التلقائي عند الضغط على الخانات */
 @supports (-webkit-touch-callout:none){ input,select,textarea{font-size:16px !important;} }
 
-/* ─── MOBILE BOTTOM NAV ─── */
+/* ─── MOBILE TOP ICON NAV ─── */
 #bottomNav,#moreSheet,.bk-tabs{display:none;}
 @media screen and (max-width:720px){
   body.app-ready nav#mainNav{display:none !important;}
-  body.app-ready{padding-bottom:calc(74px + env(safe-area-inset-bottom,0px));}
-  body.app-ready .toast{bottom:calc(88px + env(safe-area-inset-bottom,0px));}
   body.app-ready #bottomNav{
-    display:flex; position:fixed; bottom:0; left:0; right:0; z-index:120;
-    background:var(--nav-bg); border-top:1px solid rgba(255,255,255,.12);
-    padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px)); box-shadow:0 -4px 18px rgba(0,0,0,.25);
+    display:flex; position:sticky; top:var(--hdr-h,52px); z-index:49;
+    background:var(--nav-bg); border-bottom:1px solid rgba(255,255,255,.12);
+    padding:6px 4px; box-shadow:0 4px 14px rgba(0,0,0,.22);
   }
   #bottomNav button{
     flex:1; background:none; border:none; color:rgba(255,255,255,.65); font:inherit; cursor:pointer;
@@ -854,13 +852,13 @@
   #bottomNav button.active{color:var(--gold);}
   #bottomNav button.active .bn-lbl{color:var(--gold);}
   .bn-badge{position:absolute; top:0; right:calc(50% - 22px); background:#B4432F; color:#fff; font-size:10px; font-weight:800; min-width:17px; height:17px; line-height:17px; border-radius:20px; padding:0 4px; text-align:center;}
-  #moreSheet.open{display:block; position:fixed; inset:0; z-index:130; background:rgba(0,0,0,.5);}
+  #moreSheet.open{display:block; position:fixed; top:var(--ms-top,120px); left:0; right:0; bottom:0; z-index:48; background:rgba(0,0,0,.5);}
   #moreSheet .ms-panel{
-    position:absolute; bottom:0; left:0; right:0; background:var(--paper); color:var(--ink);
-    border-radius:20px 20px 0 0; padding:10px 16px calc(24px + env(safe-area-inset-bottom,0px)); animation:msUp .22s ease;
+    position:absolute; top:0; left:0; right:0; background:var(--paper); color:var(--ink);
+    border-radius:0 0 20px 20px; padding:16px 16px 20px; animation:msDown .22s ease; box-shadow:0 10px 30px rgba(0,0,0,.3);
   }
-  @keyframes msUp{from{transform:translateY(40px);opacity:0;}to{transform:none;opacity:1;}}
-  .ms-handle{width:40px; height:4px; background:var(--line); border-radius:2px; margin:0 auto 14px;}
+  @keyframes msDown{from{transform:translateY(-24px);opacity:0;}to{transform:none;opacity:1;}}
+  .ms-handle{display:none;}
   .ms-title{font-size:15px; font-weight:800; margin-bottom:12px;}
   .ms-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
   .ms-grid button{
@@ -915,7 +913,7 @@ setTimeout(function(){
   <button data-view="orders">📋 الحجوزات <span id="ordersNavBadge" style="display:none;background:#B4432F;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-right:4px;"></span></button>
 </nav>
 
-<!-- ===== شريط التنقل السفلي (الموبايل) ===== -->
+<!-- ===== شريط التنقل العلوي للموبايل ===== -->
 <div id="bottomNav">
   <button data-bn="dashboard" class="active" onclick="bnGo('dashboard')"><span class="bn-ico">🏠</span><span class="bn-lbl">الرئيسية</span></button>
   <button data-bn="bookings" onclick="bnGo('bookings')"><span class="bn-ico">📋</span><span class="bn-lbl">الحجوزات</span><span id="bnBkBadge" class="bn-badge" style="display:none;"></span></button>
@@ -1757,7 +1755,7 @@ function switchView(name){
   const bnMap={orders:'bookings',limobookings:'bookings',remaining:'more',movements:'more',carreport:'more',merchants:'more',limo:'more'};
   document.querySelectorAll('#bottomNav button').forEach(b=>b.classList.toggle('active', b.dataset.bn===(bnMap[name]||name)));
   document.querySelectorAll('.bk-tabs').forEach(t=>{ const bs=t.querySelectorAll('button'); bs[0].classList.toggle('on',name==='orders'); bs[1].classList.toggle('on',name==='limobookings'); });
-  window.scrollTo(0,0);
+  syncHdr(); window.scrollTo(0,0);
 }
 
 let lastBkView='orders';
@@ -1769,7 +1767,13 @@ function bnGo(name){
   if(name==='more'){ toggleMore(true); return; }
   switchView(name);
 }
-function toggleMore(open){ document.getElementById('moreSheet').classList.toggle('open',open); }
+function toggleMore(open){
+  const sh=document.getElementById('moreSheet');
+  if(open){ syncHdr(); sh.style.setProperty('--ms-top', Math.max(document.getElementById('bottomNav').getBoundingClientRect().bottom,0)+'px'); }
+  sh.classList.toggle('open',open);
+}
+function syncHdr(){ const h=document.querySelector('header'); if(h) document.documentElement.style.setProperty('--hdr-h', h.offsetHeight+'px'); }
+window.addEventListener('resize',syncHdr); window.addEventListener('load',syncHdr); setTimeout(syncHdr,400);
 function moreGo(v){ toggleMore(false); switchView(v); }
 function updateBkBadges(){
   const po=orders.filter(o=>o.status==='pending').length, pl=limoBookings.filter(o=>o.status==='pending').length;

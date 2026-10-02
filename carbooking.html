@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shabara Motors</title>
+<link rel="manifest" href="manifest-customer.json">
+<meta name="theme-color" content="#1B2A4A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Shabara">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+
 <link rel="icon" type="image/png" href="001.png">
 <link rel="shortcut icon" href="001.png">
 <link rel="apple-touch-icon" href="001.png">
@@ -403,6 +412,72 @@ header{
 #splash.hide{opacity:0;pointer-events:none;}
 #splash img{width:160px;max-width:55vw;height:auto;object-fit:contain;animation:splashPop .8s ease both;}
 @keyframes splashPop{from{opacity:0;transform:scale(.8);}to{opacity:1;transform:scale(1);}}
+
+/* LIMO PRICES */
+.pane-tabs{display:flex;gap:8px;margin-bottom:18px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:5px;}
+.pane-tab{flex:1;border:none;background:none;padding:11px 8px;border-radius:10px;font:inherit;font-weight:800;font-size:14px;color:var(--muted);cursor:pointer;}
+.pane-tab.active{background:var(--navy);color:#fff;}
+.limo-types{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap;}
+.limo-type{flex:1;min-width:90px;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:10px 6px;font:inherit;font-weight:800;font-size:13.5px;color:var(--navy);cursor:pointer;}
+.limo-type.active{background:var(--gold);border-color:var(--gold);color:#fff;}
+.limo-sec{font-size:16px;font-weight:900;color:var(--navy);margin:22px 0 10px;}
+.limo-item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow);}
+.limo-route{font-weight:700;font-size:14px;line-height:1.7;color:var(--ink);margin-bottom:10px;}
+.limo-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.limo-cell{text-align:center;border-radius:10px;padding:8px 4px;background:var(--cream);color:var(--muted);}
+.limo-cell b{display:block;font-size:15px;color:var(--ink);}
+.limo-cell span{font-size:11px;font-weight:700;}
+.limo-cell.sel{background:var(--navy);color:#e8c46a;}
+.limo-cell.sel b{color:#fff;font-size:17px;}
+.limo-note{font-size:12px;color:var(--muted);text-align:center;margin-top:16px;}
+
+/* LIMO BOOKING */
+.limo-book{width:100%;margin-top:10px;border:none;background:var(--gold);color:#fff;font:inherit;font-weight:800;font-size:14px;padding:11px;border-radius:10px;cursor:pointer;}
+.limo-book:hover{background:var(--gold-dk);}
+#limoBookOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:400;display:none;align-items:center;justify-content:center;padding:16px;}
+#limoBookOverlay.open{display:flex;}
+.lb-sheet{background:#fff;border-radius:18px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lg);}
+.lb-head{position:sticky;top:0;background:#fff;z-index:2;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);}
+.lb-head h3{font-size:17px;font-weight:900;color:var(--navy);}
+.lb-x{border:none;background:var(--cream);width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;}
+.lb-body{padding:16px 20px;}
+.lb-sec{font-size:13px;font-weight:900;color:var(--gold-dk);margin:16px 0 8px;}
+.lb-sec:first-child{margin-top:0;}
+.lb-f{margin-bottom:11px;}
+.lb-f label{display:block;font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:5px;}
+.lb-f input,.lb-f select,.lb-f textarea{width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);}
+.lb-f input:focus,.lb-f select:focus,.lb-f textarea:focus{outline:none;border-color:var(--gold);}
+.lb-f textarea{min-height:62px;resize:vertical;}
+.lb-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.lb-seg{display:flex;gap:8px;}
+.lb-seg button{flex:1;border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:10px 4px;font:inherit;font-weight:800;font-size:13px;color:var(--navy);cursor:pointer;}
+.lb-seg button.on{background:var(--navy);border-color:var(--navy);color:#fff;}
+.lb-loc{display:flex;gap:8px;}
+.lb-loc input{flex:1;}
+.lb-gps{border:1.5px solid var(--gold);background:#fff;color:var(--gold-dk);border-radius:10px;padding:0 12px;font:inherit;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;}
+.lb-gps.ok{background:var(--green);border-color:var(--green);color:#fff;}
+.lb-hint{font-size:11.5px;color:var(--muted);margin-top:4px;}
+.lb-price{background:var(--navy);color:#fff;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin:14px 0 4px;}
+.lb-price b{font-size:22px;color:var(--gold-lt);}
+.lb-foot{padding:4px 20px 20px;}
+
+.lb-locbtns{display:flex;gap:8px;margin-top:8px;}
+.lb-locbtns .lb-gps{flex:1;padding:10px 6px;}
+#lbMapOverlay{position:fixed;inset:0;z-index:450;background:#fff;display:none;}
+#lbMapOverlay.open{display:block;}
+.lbm-sheet{display:flex;flex-direction:column;height:100%;}
+.lbm-top{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);background:#fff;}
+.lbm-top input{flex:1;font:inherit;font-size:14px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;min-width:0;}
+.lbm-top .lb-gps{padding:10px 14px;}
+.lbm-mapwrap{position:relative;flex:1;min-height:0;}
+#lbm_map{position:absolute;inset:0;}
+.lbm-pin{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);font-size:38px;line-height:1;z-index:1000;pointer-events:none;filter:drop-shadow(0 3px 3px rgba(0,0,0,.35));}
+.lbm-me{position:absolute;bottom:16px;left:12px;z-index:1000;width:46px;height:46px;border-radius:50%;border:none;background:#fff;font-size:22px;cursor:pointer;box-shadow:var(--shadow-lg);}
+.lbm-bottom{padding:12px 16px 16px;background:#fff;border-top:1px solid var(--line);}
+.lbm-addr{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px;line-height:1.6;min-height:42px;}
+
+/* iOS: منع التكبير التلقائي عند الضغط على الخانات */
+@supports (-webkit-touch-callout:none){ input,select,textarea{font-size:16px !important;} }
 </style>
 </head>
 <body>
@@ -471,6 +546,11 @@ setTimeout(function(){
   <div class="app-body">
     <!-- CATALOG -->
     <div>
+      <div class="pane-tabs">
+        <button class="pane-tab active" id="tabCars" onclick="showPane('cars')">🚗 السيارات</button>
+        <button class="pane-tab" id="tabLimo" onclick="showPane('limo')">🚐 أسعار الليموزين</button>
+      </div>
+      <div id="carsPane">
       <div class="catalog-head">
         <h2>🚗 السيارات المتاحة</h2>
         <p>اختر السيارة وحدد التواريخ وأرسل طلب الحجز</p>
@@ -491,6 +571,22 @@ setTimeout(function(){
         <div class="skeleton-grid" id="skeletonGrid">
           ${Array(6).fill('<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-body"><div class="skeleton-line w60"></div><div class="skeleton-line w80"></div><div class="skeleton-line w40"></div></div></div>').join('')}
         </div>
+      </div>
+      </div><!-- /carsPane -->
+
+      <div id="limoPane" style="display:none;">
+        <div class="catalog-head">
+          <h2>🚐 أسعار الليموزين 2026</h2>
+          <p>اختر نوع السيارة لعرض سعر كل رحلة</p>
+        </div>
+        <div class="search-wrap"><span class="ico">🔍</span><input id="limoSearch" placeholder="ابحث عن وجهة..." oninput="renderLimo()"></div>
+        <div class="limo-types" id="limoTypes">
+          <button class="limo-type active" data-t="sedan" onclick="setLimoType('sedan')">🚗 سيدان</button>
+          <button class="limo-type" data-t="minivan" onclick="setLimoType('minivan')">🚐 ميني فان</button>
+          <button class="limo-type" data-t="van" onclick="setLimoType('van')">🚌 فان</button>
+        </div>
+        <div id="limoList"></div>
+        <div class="limo-note">الأسعار بالجنيه المصري وقابلة للتغيير — للحجز تواصل معنا</div>
       </div>
     </div>
 
@@ -586,6 +682,88 @@ setTimeout(function(){
   <button class="lightbox-close" onclick="closeLightbox(event)" aria-label="إغلاق">✕</button>
   <img id="lightboxImg" src="" alt="">
   <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
+
+
+<!-- LIMO BOOKING MODAL -->
+<div id="limoBookOverlay" onclick="if(event.target===this)closeLimoBook()">
+  <div class="lb-sheet">
+    <div class="lb-head"><h3>🚖 حجز ليموزين</h3><button class="lb-x" onclick="closeLimoBook()">✕</button></div>
+    <div class="lb-body">
+      <div class="lb-sec">🛣️ تفاصيل الرحلة</div>
+      <div class="lb-f"><label>الرحلة</label><select id="lb_route" onchange="lbUpdate()"></select></div>
+      <div class="lb-f"><label>نوع السيارة</label>
+        <div class="lb-seg" id="lb_types">
+          <button type="button" data-t="sedan" onclick="lbType('sedan')">🚗 سيدان</button>
+          <button type="button" data-t="minivan" onclick="lbType('minivan')">🚐 ميني فان</button>
+          <button type="button" data-t="van" onclick="lbType('van')">🚌 فان</button>
+        </div>
+      </div>
+      <div class="lb-f"><label>نوع الحجز</label>
+        <div class="lb-seg" id="lb_trip">
+          <button type="button" data-t="oneway" onclick="lbTrip('oneway')">ذهاب فقط</button>
+          <button type="button" data-t="round" onclick="lbTrip('round')">ذهاب وعودة</button>
+        </div>
+      </div>
+      <div class="lb-2">
+        <div class="lb-f"><label>📅 تاريخ الرحلة</label><input id="lb_date" type="date"></div>
+        <div class="lb-f"><label>⏰ وقت الاستلام</label><input id="lb_time" type="time"></div>
+      </div>
+      <div class="lb-2" id="lb_returnBox" style="display:none;">
+        <div class="lb-f"><label>📅 تاريخ العودة</label><input id="lb_rdate" type="date"></div>
+        <div class="lb-f"><label>⏰ وقت العودة</label><input id="lb_rtime" type="time"></div>
+      </div>
+
+      <div class="lb-sec">📍 أماكن الاستلام والتوصيل</div>
+      <div class="lb-f"><label>مكان الاستلام (من أين تريد أن نأخذك؟)</label>
+        <input id="lb_pickup" oninput="lb.addrAuto=false" placeholder="العنوان بالتفصيل: المنطقة، الشارع، علامة مميزة">
+        <div class="lb-locbtns">
+          <button type="button" class="lb-gps" id="lb_gps" onclick="lbLocate()">📍 موقعي الحالي</button>
+          <button type="button" class="lb-gps" id="lb_mapBtn" onclick="openLbMap()">🗺️ اختر من الخريطة</button>
+        </div>
+        <div class="lb-hint" id="lb_gpsHint">حدد موقعك بالـ GPS أو من الخريطة ليصل السائق إليك بدقة</div>
+      </div>
+      <div class="lb-f"><label>مكان التوصيل بالتفصيل (اختياري)</label><input id="lb_drop" placeholder="اسم الفندق أو العنوان داخل الوجهة"></div>
+      <div class="lb-f" id="lb_flightBox" style="display:none;"><label>✈️ رقم الرحلة الجوية</label><input id="lb_flight" dir="ltr" placeholder="مثال: MS 777"></div>
+
+      <div class="lb-sec">👥 الركاب والأمتعة</div>
+      <div class="lb-2">
+        <div class="lb-f"><label>عدد الركاب</label><input id="lb_pax" type="number" min="1" max="30" value="1" inputmode="numeric"></div>
+        <div class="lb-f"><label>عدد الحقائب</label><input id="lb_bags" type="number" min="0" max="50" value="0" inputmode="numeric"></div>
+      </div>
+
+      <div class="lb-sec">👤 بياناتك</div>
+      <div class="lb-f"><label>الاسم الكامل</label><input id="lb_name" placeholder="مثال: أحمد محمود"></div>
+      <div class="lb-f"><label>رقم التليفون (واتساب)</label><input id="lb_phone" type="tel" dir="ltr" placeholder="01xxxxxxxxx"></div>
+      <div class="lb-f"><label>طريقة الدفع</label><select id="lb_pay"><option>نقدًا للسائق</option><option>تحويل / محفظة إلكترونية</option></select></div>
+      <div class="lb-f"><label>ملاحظات (اختياري)</label><textarea id="lb_note" placeholder="كرسي أطفال، لافتة استقبال، توقف في الطريق..."></textarea></div>
+
+      <div class="lb-price"><span>السعر</span><b id="lb_price">—</b></div>
+      <div class="lb-hint" id="lb_priceNote" style="text-align:center;"></div>
+    </div>
+    <div class="lb-foot"><button class="btn-submit" id="lb_submit" onclick="submitLimo()">📤 إرسال طلب الحجز</button></div>
+  </div>
+</div>
+
+
+<!-- LIMO MAP PICKER -->
+<div id="lbMapOverlay">
+  <div class="lbm-sheet">
+    <div class="lbm-top">
+      <button class="lb-x" onclick="closeLbMap()">✕</button>
+      <input id="lbm_q" placeholder="ابحث عن مكان أو عنوان..." onkeydown="if(event.key==='Enter')lbmSearch()">
+      <button class="lb-gps" onclick="lbmSearch()">بحث</button>
+    </div>
+    <div class="lbm-mapwrap">
+      <div id="lbm_map"></div>
+      <div class="lbm-pin">📍</div>
+      <button class="lbm-me" title="موقعي الحالي" onclick="lbmLocate()">🎯</button>
+    </div>
+    <div class="lbm-bottom">
+      <div class="lbm-addr" id="lbm_addr">حرّك الخريطة لوضع الدبوس على مكان الاستلام</div>
+      <button class="btn-submit" onclick="lbmConfirm()">✅ تأكيد هذا الموقع</button>
+    </div>
+  </div>
 </div>
 
 <div id="successScreen" style="display:none;">
@@ -827,10 +1005,234 @@ const DEFAULT_FIREBASE_CONFIG = {
   else showError('');
 })();
 
+
+/* ═══════════════════════════════════════
+   LIMO PRICES
+═══════════════════════════════════════ */
+let limoPrices=[], limoType='sedan';
+const LIMO_SECS={cairo:'🚐 ليموزين داخل القاهرة',gov:'🛣️ ليموزين المحافظات داخل مصر'};
+const LIMO_TYPES={sedan:'سيدان',minivan:'ميني فان',van:'فان'};
+function showPane(p){
+  document.getElementById('carsPane').style.display = p==='cars'?'':'none';
+  document.getElementById('limoPane').style.display = p==='limo'?'':'none';
+  document.getElementById('tabCars').classList.toggle('active',p==='cars');
+  document.getElementById('tabLimo').classList.toggle('active',p==='limo');
+}
+function setLimoType(t){
+  limoType=t;
+  document.querySelectorAll('#limoTypes .limo-type').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  renderLimo();
+}
+function renderLimo(){
+  const box=document.getElementById('limoList'); if(!box) return;
+  const q=(document.getElementById('limoSearch').value||'').trim();
+  const rows=limoPrices.filter(r=>r.active!==false && (!q || (r.route||'').includes(q)));
+  if(!rows.length){ box.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 0;">'+(limoPrices.length?'لا توجد نتائج':'لا توجد أسعار حاليًا')+'</p>'; return; }
+  box.innerHTML=Object.keys(LIMO_SECS).map(sec=>{
+    const g=rows.filter(r=>(r.section||'cairo')===sec); if(!g.length) return '';
+    return '<div class="limo-sec">'+LIMO_SECS[sec]+'</div>'+g.map(r=>
+      '<div class="limo-item"><div class="limo-route">'+esc(r.route)+'</div><div class="limo-row">'+
+      Object.keys(LIMO_TYPES).map(k=>'<div class="limo-cell'+(k===limoType?' sel':'')+'"><span>'+LIMO_TYPES[k]+'</span><b>'+fmt(r[k])+'</b><span>جنيه</span></div>').join('')+
+      '</div><button class="limo-book" onclick="openLimoBook(\''+r.id+'\')">🚖 احجز هذه الرحلة</button></div>').join('');
+  }).join('');
+}
+
+
+/* ═══════════════════════════════════════
+   LIMO BOOKING
+═══════════════════════════════════════ */
+let lb={type:'sedan',trip:'oneway',lat:null,lng:null,acc:null};
+function openLimoBook(routeId){
+  const act=limoPrices.filter(r=>r.active!==false);
+  document.getElementById('lb_route').innerHTML=act.map(r=>'<option value="'+r.id+'">'+esc(r.route)+'</option>').join('');
+  if(routeId) document.getElementById('lb_route').value=routeId;
+  lb={type:limoType,trip:'oneway',lat:null,lng:null,acc:null,addrAuto:false};
+  const today=localToday();
+  ['lb_date','lb_rdate'].forEach(i=>{const e=document.getElementById(i); e.min=today; e.value='';});
+  ['lb_time','lb_rtime','lb_pickup','lb_drop','lb_flight','lb_note'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('lb_pax').value=1; document.getElementById('lb_bags').value=0;
+  document.getElementById('lb_name').value=localStorage.getItem('mpMerchantName')||'';
+  document.getElementById('lb_phone').value=localStorage.getItem('mpMerchantPhone')||'';
+  lbRefreshLoc();
+  const b=document.getElementById('lb_submit'); b.disabled=false; b.textContent='📤 إرسال طلب الحجز';
+  document.getElementById('lb_types').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.t===lb.type));
+  document.getElementById('lb_trip').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.t==='oneway'));
+  document.getElementById('lb_returnBox').style.display='none';
+  lbUpdate();
+  document.getElementById('limoBookOverlay').classList.add('open');
+}
+function closeLimoBook(){ document.getElementById('limoBookOverlay').classList.remove('open'); }
+function lbType(t){ lb.type=t; document.querySelectorAll('#lb_types button').forEach(x=>x.classList.toggle('on',x.dataset.t===t)); lbUpdate(); }
+function lbTrip(t){ lb.trip=t; document.querySelectorAll('#lb_trip button').forEach(x=>x.classList.toggle('on',x.dataset.t===t)); document.getElementById('lb_returnBox').style.display=t==='round'?'':'none'; lbUpdate(); }
+function lbRoute(){ return limoPrices.find(r=>r.id===document.getElementById('lb_route').value); }
+function lbUpdate(){
+  const r=lbRoute(); if(!r) return;
+  document.getElementById('lb_price').textContent=fmt(r[lb.type])+' جنيه';
+  document.getElementById('lb_priceNote').textContent = lb.trip==='round' ? 'السعر لرحلة الذهاب — يؤكد فريقنا سعر الذهاب والعودة معك' : '';
+  document.getElementById('lb_flightBox').style.display = /مطار/.test(r.route||'') ? '' : 'none';
+}
+/* ── GPS + خريطة اختيار الموقع ── */
+function getGps(){
+  return new Promise((res,rej)=>{
+    if(!window.isSecureContext||!navigator.geolocation) return rej({code:-1});
+    navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  });
+}
+function gpsErr(e){
+  const c=e&&e.code;
+  if(c===1) return 'تم رفض إذن الموقع — فعّله للمتصفح من الإعدادات أو اختر من الخريطة';
+  if(c===-1) return 'تحديد الموقع يتطلب اتصالًا آمنًا (https) — اختر الموقع من الخريطة';
+  if(c===3) return 'انتهت مهلة تحديد الموقع، تأكد من تشغيل GPS وأعد المحاولة';
+  return 'تعذر تحديد موقعك، اختر الموقع من الخريطة';
+}
+function reverseGeo(lat,lng){
+  return fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=ar&lat='+lat+'&lon='+lng)
+    .then(r=>r.json()).then(d=>d.display_name||'').catch(()=>'');
+}
+function lbRefreshLoc(){
+  const h=document.getElementById('lb_gpsHint'), g=document.getElementById('lb_gps'), m=document.getElementById('lb_mapBtn');
+  if(lb.lat==null){
+    g.classList.remove('ok'); g.textContent='📍 موقعي الحالي'; m.textContent='🗺️ اختر من الخريطة';
+    h.style.color=''; h.textContent='حدد موقعك بالـ GPS أو من الخريطة ليصل السائق إليك بدقة'; return;
+  }
+  g.classList.add('ok'); g.textContent='✓ تم تحديد الموقع'; m.textContent='🗺️ تعديل على الخريطة';
+  h.style.color='var(--green)';
+  h.textContent='✅ تم حفظ موقعك على الخريطة'+(lb.acc?' (دقة ~'+lb.acc+' متر)':'')+' — سيصل للسائق مباشرة';
+}
+function fillPickup(addr){
+  const i=document.getElementById('lb_pickup');
+  if(addr && (!i.value.trim() || lb.addrAuto)){ i.value=addr; lb.addrAuto=true; }
+}
+function setLbLocation(lat,lng,acc,addr){
+  lb.lat=lat; lb.lng=lng; lb.acc=acc||null;
+  lbRefreshLoc();
+  if(addr!==undefined) fillPickup(addr);
+  else reverseGeo(lat,lng).then(fillPickup);
+}
+function lbLocate(){
+  const g=document.getElementById('lb_gps'), h=document.getElementById('lb_gpsHint');
+  g.textContent='⏳ جاري تحديد موقعك...'; h.style.color='';
+  getGps().then(pos=>{
+    setLbLocation(pos.coords.latitude,pos.coords.longitude,Math.round(pos.coords.accuracy||0));
+  }).catch(e=>{
+    lbRefreshLoc(); h.style.color='var(--red)'; h.textContent=gpsErr(e);
+  });
+}
+
+let lbmMap=null, lbmLoad=null, lbmTimer=null, lbmTok=0, lbmAddr='';
+function loadLeaflet(){
+  if(window.L) return Promise.resolve();
+  if(lbmLoad) return lbmLoad;
+  lbmLoad=new Promise((res,rej)=>{
+    const l=document.createElement('link'); l.rel='stylesheet';
+    l.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(l);
+    const sc=document.createElement('script');
+    sc.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    sc.onload=res; sc.onerror=()=>{ lbmLoad=null; rej(); };
+    document.head.appendChild(sc);
+  });
+  return lbmLoad;
+}
+function openLbMap(){
+  document.getElementById('lbMapOverlay').classList.add('open');
+  document.getElementById('lbm_addr').textContent='⏳ جاري تحميل الخريطة...';
+  loadLeaflet().then(()=>{
+    const has=lb.lat!=null, start=has?[lb.lat,lb.lng]:[30.0444,31.2357];
+    if(!lbmMap){
+      lbmMap=L.map('lbm_map').setView(start,has?17:11);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(lbmMap);
+      lbmMap.on('moveend',lbmMoved);
+    }else lbmMap.setView(start,has?17:lbmMap.getZoom());
+    setTimeout(()=>{ lbmMap.invalidateSize(); lbmMoved(); },60);
+    if(!has) lbmLocate(true);
+  }).catch(()=>{ closeLbMap(); toast('⚠️ تعذر تحميل الخريطة، تأكد من الاتصال بالإنترنت'); });
+}
+function closeLbMap(){ document.getElementById('lbMapOverlay').classList.remove('open'); }
+function lbmMoved(){
+  if(!lbmMap) return;
+  const c=lbmMap.getCenter(), tok=++lbmTok, el=document.getElementById('lbm_addr');
+  el.textContent='⏳ جاري تحديد العنوان...'; lbmAddr='';
+  clearTimeout(lbmTimer);
+  lbmTimer=setTimeout(()=>reverseGeo(c.lat,c.lng).then(a=>{
+    if(tok!==lbmTok) return;
+    lbmAddr=a; el.textContent=a?('📍 '+a):'📍 تم تحديد النقطة — يمكنك التأكيد';
+  }),500);
+}
+function lbmLocate(silent){
+  getGps().then(pos=>{
+    lbmMap.setView([pos.coords.latitude,pos.coords.longitude],17);
+  }).catch(e=>{ if(silent!==true) toast('⚠️ '+gpsErr(e)); });
+}
+function lbmSearch(){
+  const q=document.getElementById('lbm_q').value.trim(); if(!q) return;
+  fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=ar&countrycodes=eg&q='+encodeURIComponent(q))
+    .then(r=>r.json()).then(d=>{
+      if(!d.length){ toast('⚠️ لم يتم العثور على المكان، جرّب كلمات أخرى'); return; }
+      lbmMap.setView([parseFloat(d[0].lat),parseFloat(d[0].lon)],17);
+    }).catch(()=>toast('⚠️ تعذر البحث، تأكد من الاتصال'));
+}
+function lbmConfirm(){
+  if(!lbmMap) return;
+  const c=lbmMap.getCenter();
+  setLbLocation(c.lat,c.lng,null,lbmAddr||undefined);
+  closeLbMap();
+  toast('✅ تم تحديد الموقع');
+}
+
+function submitLimo(){
+  const v=i=>document.getElementById(i).value.trim();
+  const r=lbRoute();
+  if(!r){ toast('⚠️ اختر الرحلة'); return; }
+  if(!v('lb_date')||!v('lb_time')){ toast('⚠️ حدد تاريخ ووقت الرحلة'); return; }
+  const now=new Date(); const when=new Date(v('lb_date')+'T'+v('lb_time'));
+  if(when<now){ toast('⚠️ موعد الرحلة في الماضي'); return; }
+  if(lb.trip==='round'){
+    if(!v('lb_rdate')||!v('lb_rtime')){ toast('⚠️ حدد تاريخ ووقت العودة'); return; }
+    if(new Date(v('lb_rdate')+'T'+v('lb_rtime'))<=when){ toast('⚠️ موعد العودة يجب أن يكون بعد الذهاب'); return; }
+  }
+  if(!v('lb_pickup') && lb.lat==null){ toast('⚠️ اكتب مكان الاستلام أو حدد موقعك'); return; }
+  const pax=parseInt(v('lb_pax'))||0;
+  if(pax<1){ toast('⚠️ أدخل عدد الركاب'); return; }
+  const cap={sedan:4,minivan:7,van:14};
+  if(pax>cap[lb.type]){ toast('⚠️ عدد الركاب أكبر من سعة هذا النوع (حتى '+cap[lb.type]+')، اختر نوعًا أكبر'); return; }
+  if(!v('lb_name')){ toast('⚠️ أدخل اسمك'); return; }
+  const ph=v('lb_phone').replace(/[^\d]/g,'');
+  if(!/^01\d{9}$/.test(ph)){ toast('⚠️ رقم التليفون غير صحيح (11 رقم يبدأ بـ 01)'); return; }
+
+  localStorage.setItem('mpMerchantName',v('lb_name')); localStorage.setItem('mpMerchantPhone',ph);
+  const btn=document.getElementById('lb_submit'); btn.disabled=true; btn.textContent='⏳ جاري الإرسال...';
+  const order={
+    routeId:r.id, route:r.route, section:r.section||'cairo', vehicleType:lb.type, vehicleLabel:LIMO_TYPES[lb.type],
+    price:Number(r[lb.type])||0, tripType:lb.trip,
+    date:v('lb_date'), time:v('lb_time'),
+    returnDate: lb.trip==='round'?v('lb_rdate'):'', returnTime: lb.trip==='round'?v('lb_rtime'):'',
+    pickupAddress:v('lb_pickup'), pickupLat:lb.lat, pickupLng:lb.lng, pickupAccuracy:lb.acc,
+    dropAddress:v('lb_drop'), flightNo:v('lb_flight'),
+    passengers:pax, bags:parseInt(v('lb_bags'))||0,
+    customerName:v('lb_name'), customerPhone:ph, paymentMethod:v('lb_pay'), note:v('lb_note'),
+    status:'pending', createdAt:FVX.serverTimestamp(), source:'merchant-portal'
+  };
+  db.collection('limoBookings').add(order).then(ref=>{
+    ensureMerchantProfile(order.customerName, ph);
+    closeLimoBook();
+    document.getElementById('userPill').textContent=order.customerName;
+    document.getElementById('appScreen').style.display='none';
+    document.getElementById('successScreen').style.display='flex';
+    document.getElementById('successOrderId').textContent='رقم الحجز: '+ref.id.slice(-6).toUpperCase();
+  }).catch(e=>{ toast('❌ فشل الإرسال: '+e.message); btn.disabled=false; btn.textContent='📤 إرسال طلب الحجز'; });
+}
+
 /* ═══════════════════════════════════════
    FIRESTORE LISTENERS
 ═══════════════════════════════════════ */
 function listenData(){
+  // limo prices
+  db.collection('limoPrices').onSnapshot(snap=>{
+    limoPrices=[]; snap.forEach(d=>limoPrices.push({id:d.id,...d.data()}));
+    limoPrices.sort((a,b)=>(a.order||0)-(b.order||0));
+    renderLimo();
+  }, ()=>{});
+
   // items
   db.collection('cars').orderBy('createdAt','desc').onSnapshot(snap=>{
     allItems = [];
@@ -1227,6 +1629,11 @@ function toast(msg){
   el.textContent=msg; el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>el.classList.remove('show'),2600);
+}
+</script>
+<script>
+if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 </script>
 </body>

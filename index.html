@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Shabara Motors</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#1B2A4A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Shabara">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+
 <link rel="icon" type="image/png" href="001.png">
 <link rel="shortcut icon" href="001.png">
 <link rel="apple-touch-icon" href="001.png">
@@ -795,6 +804,35 @@
 #splash img{width:160px;max-width:55vw;height:auto;object-fit:contain;animation:splashPop .8s ease both;}
 @keyframes splashPop{from{opacity:0;transform:scale(.8);}to{opacity:1;transform:scale(1);}}
 #itemStockNewField,#itemStockAdjField,#itemStockDisplayField{display:none !important}
+
+/* ─── LIMO PRICES ─── */
+.limo-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden;}
+.limo-card h3{font-size:15px;font-weight:800;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--cream);}
+.limo-wrap{overflow-x:auto;}
+.limo-tbl{width:100%;border-collapse:collapse;min-width:640px;}
+.limo-tbl th{font-size:12px;color:var(--muted);font-weight:700;text-align:center;padding:10px 12px;border-bottom:1px solid var(--line);}
+.limo-tbl td{padding:12px;border-bottom:1px solid var(--line);text-align:center;font-weight:800;font-size:14px;}
+.limo-tbl th:first-child,.limo-tbl td:first-child{text-align:right;}
+.limo-tbl td:first-child{font-weight:600;font-size:13.5px;line-height:1.6;}
+.limo-tbl tr:last-child td{border-bottom:none;}
+.limo-tbl tr.off td{opacity:.45;}
+.limo-price small{font-size:10.5px;color:var(--muted);font-weight:600;margin-right:3px;}
+.limo-act{white-space:nowrap;}
+.limo-empty{text-align:center;padding:50px 16px;color:var(--muted);}
+.limo-empty .big{font-size:42px;margin-bottom:8px;}
+
+.lbk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 16px;margin:12px 0;font-size:13px;}
+.lbk-grid div span{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:2px;}
+.lbk-grid div b{font-weight:700;line-height:1.6;}
+.lbk-st{padding:3px 12px;border-radius:20px;font-size:11.5px;font-weight:800;}
+.lbk-st.pending{background:#FDF2E3;color:var(--gold-dark);}
+.lbk-st.confirmed{background:#E4EEF9;color:#2B5C9E;}
+.lbk-st.done{background:#E5F3EA;color:var(--green);}
+.lbk-st.cancelled{background:#FBEDEA;color:var(--red);}
+.lbk-link{color:var(--gold-dark);font-weight:800;text-decoration:none;}
+
+/* iOS: منع التكبير التلقائي عند الضغط على الخانات */
+@supports (-webkit-touch-callout:none){ input,select,textarea{font-size:16px !important;} }
 </style>
 </head>
 <body>
@@ -831,6 +869,8 @@ setTimeout(function(){
   <button data-view="movements">سجل الحركة</button>
   <button data-view="carreport">📈 تقرير السيارات</button>
   <button data-view="merchants">العملاء</button>
+  <button data-view="limo">🚐 أسعار الليموزين</button>
+  <button data-view="limobookings">🚖 حجوزات الليموزين <span id="limoNavBadge" style="display:none;background:#B4432F;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-right:4px;"></span></button>
   <button data-view="orders">📋 الحجوزات <span id="ordersNavBadge" style="display:none;background:#B4432F;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-right:4px;"></span></button>
 </nav>
 
@@ -1119,6 +1159,39 @@ setTimeout(function(){
     <div id="merchantsCards"></div>
   </div>
 
+  <!-- ========== LIMO BOOKINGS VIEW ========== -->
+  <div id="view-limobookings" class="view">
+    <div class="section-head" style="margin-top:0;">
+      <div>
+        <div class="page-title">🚖 حجوزات الليموزين</div>
+        <div class="page-sub">الحجوزات الواردة من بوابة العملاء</div>
+      </div>
+      <select id="limoBkFilter" class="btn btn-outline btn-sm" onchange="renderLimoBookings()" style="padding:6px 12px;font-size:12.5px;border-radius:8px;">
+        <option value="">كل الحجوزات</option>
+        <option value="pending">جديد / قيد الانتظار</option>
+        <option value="confirmed">مؤكد</option>
+        <option value="done">تم التنفيذ</option>
+        <option value="cancelled">ملغي</option>
+      </select>
+    </div>
+    <div id="limoBkContainer"></div>
+  </div>
+
+  <!-- ========== LIMO PRICES VIEW ========== -->
+  <div id="view-limo" class="view">
+    <div class="section-head" style="margin-top:0;">
+      <div>
+        <div class="page-title">🚐 أسعار الليموزين</div>
+        <div class="page-sub">أى تعديل هنا يظهر فورًا للعميل في بوابة الحجز</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="copyLimoPrices()">📋 نسخ للواتساب</button>
+        <button class="btn btn-gold btn-sm" onclick="openLimoModal()">➕ إضافة رحلة</button>
+      </div>
+    </div>
+    <div id="limoContainer"></div>
+  </div>
+
   <!-- ========== ORDERS VIEW ========== -->
   <div id="view-orders" class="view">
     <div class="section-head" style="margin-top:0;">
@@ -1272,6 +1345,31 @@ setTimeout(function(){
     <div class="modal-foot">
       <button class="btn btn-gold" onclick="saveMaintenance()">💾 حفظ</button>
       <button class="btn btn-outline" onclick="closeModal('maintModalOverlay')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== مودال أسعار الليموزين ===== -->
+<div class="overlay" id="limoModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="limoModalTitle">إضافة رحلة</h3>
+      <button class="icon-btn" onclick="closeModal('limoModalOverlay')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="limoId">
+      <div class="field"><label>القسم</label>
+        <select id="limoSection"><option value="cairo">ليموزين داخل القاهرة</option><option value="gov">ليموزين المحافظات</option></select>
+      </div>
+      <div class="field"><label>الرحلة</label><input id="limoRoute" placeholder="مثال: من القاهرة إلى الغردقة"></div>
+      <div class="field"><label>سعر سيدان (جنيه)</label><input id="limoSedan" type="number" min="0" inputmode="numeric"></div>
+      <div class="field"><label>سعر ميني فان (جنيه)</label><input id="limoMinivan" type="number" min="0" inputmode="numeric"></div>
+      <div class="field"><label>سعر فان (جنيه)</label><input id="limoVan" type="number" min="0" inputmode="numeric"></div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;"><input type="checkbox" id="limoActive" checked> إظهار هذه الرحلة للعميل</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-gold" onclick="saveLimo()">💾 حفظ</button>
+      <button class="btn btn-outline" onclick="closeModal('limoModalOverlay')">إلغاء</button>
     </div>
   </div>
 </div>
@@ -1523,7 +1621,7 @@ function initFirebaseWithConfig(config){
       listenToStockMovements();
       listenToMerchantProfiles();
       listenToSaleEntries();
-      listenToOrders();
+      listenToOrders(); listenToLimoPrices(); listenToLimoBookings();
     });
   }catch(e){
     document.getElementById('view-loading').classList.remove('active');
@@ -1581,6 +1679,172 @@ function switchView(name){
   if(name==='merchants') renderMerchants();
   if(name==='archived') renderArchived();
   if(name==='orders') renderOrders();
+  if(name==='limo') renderLimoPrices();
+  if(name==='limobookings') renderLimoBookings();
+}
+
+
+
+/* ===================== LIMO BOOKINGS ===================== */
+let limoBookings=[];
+const LBK_ST={pending:'جديد',confirmed:'مؤكد',done:'تم التنفيذ',cancelled:'ملغي'};
+function listenToLimoBookings(){
+  db.collection('limoBookings').orderBy('createdAt','desc').onSnapshot(snap=>{
+    limoBookings=[]; snap.forEach(d=>limoBookings.push({id:d.id,...d.data()}));
+    renderLimoBookings();
+    const n=limoBookings.filter(o=>o.status==='pending').length, b=document.getElementById('limoNavBadge');
+    if(b){ b.textContent=n; b.style.display=n>0?'inline-block':'none'; }
+  }, err=> console.warn('limoBookings:', err.message));
+}
+function lbkWa(phone){ const d=String(phone||'').replace(/\D/g,''); return 'https://wa.me/'+(d.startsWith('0')?'2'+d:d); }
+function lbkMap(o){
+  if(o.pickupLat!=null && o.pickupLng!=null) return 'https://www.google.com/maps?q='+o.pickupLat+','+o.pickupLng;
+  return o.pickupAddress ? 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(o.pickupAddress) : '';
+}
+function renderLimoBookings(){
+  const box=document.getElementById('limoBkContainer'); if(!box) return;
+  const f=document.getElementById('limoBkFilter').value;
+  const rows=limoBookings.filter(o=>!f||o.status===f);
+  if(!rows.length){ box.innerHTML='<div class="orders-empty"><div class="big">🚖</div><p>'+(f?'لا توجد حجوزات بهذه الحالة':'لا توجد حجوزات ليموزين بعد')+'</p></div>'; return; }
+  const cell=(l,v)=> v?`<div><span>${l}</span><b>${v}</b></div>`:'';
+  box.innerHTML=rows.map(o=>{
+    const e=escapeHtml, map=lbkMap(o), st=o.status||'pending';
+    const created=o.createdAt&&o.createdAt.toDate? o.createdAt.toDate().toLocaleString('ar-EG'):'';
+    return `<div class="order-card">
+      <div class="order-card-head"><div><h3>${e(o.customerName)} — ${e(o.route)}</h3>
+        <div class="order-meta">${created}${o.id?' • #'+o.id.slice(-6).toUpperCase():''}</div></div>
+        <span class="lbk-st ${st}">${LBK_ST[st]||st}</span></div>
+      <div class="lbk-grid">
+        ${cell('📞 التليفون',`<a class="lbk-link" href="tel:${e(o.customerPhone)}">${e(o.customerPhone)}</a> • <a class="lbk-link" href="${lbkWa(o.customerPhone)}" target="_blank" rel="noopener">واتساب</a>`)}
+        ${cell('🚗 السيارة',e(o.vehicleLabel||''))}
+        ${cell('💰 السعر',fmt(o.price)+' جنيه'+(o.tripType==='round'?' <small>(للذهاب فقط)</small>':''))}
+        ${cell('🔁 نوع الحجز',o.tripType==='round'?'ذهاب وعودة':'ذهاب فقط')}
+        ${cell('📅 الموعد',e((o.date||'')+' — '+(o.time||'')))}
+        ${o.tripType==='round'?cell('↩️ موعد العودة',e((o.returnDate||'')+' — '+(o.returnTime||''))):''}
+        ${cell('📍 مكان الاستلام',e(o.pickupAddress||'—')+(map?` <a class="lbk-link" href="${map}" target="_blank" rel="noopener">🗺️ الخريطة</a>`:''))}
+        ${cell('🏁 مكان التوصيل',e(o.dropAddress))}
+        ${cell('✈️ رقم الرحلة',e(o.flightNo))}
+        ${cell('👥 الركاب / الحقائب',fmt(o.passengers)+' / '+fmt(o.bags))}
+        ${cell('💳 الدفع',e(o.paymentMethod))}
+      </div>
+      ${o.note?`<div class="order-note">📝 ${e(o.note)}</div>`:''}
+      <div class="order-actions">
+        ${st==='pending'?`<button class="btn btn-gold btn-sm" onclick="setLimoBkStatus('${o.id}','confirmed')">✅ تأكيد</button>`:''}
+        ${st==='confirmed'?`<button class="btn btn-gold btn-sm" onclick="setLimoBkStatus('${o.id}','done')">🏁 تم التنفيذ</button>`:''}
+        ${st==='pending'||st==='confirmed'?`<button class="btn btn-outline btn-sm" onclick="setLimoBkStatus('${o.id}','cancelled')">إلغاء الحجز</button>`:''}
+        ${st==='cancelled'||st==='done'?`<button class="btn btn-outline btn-sm" onclick="setLimoBkStatus('${o.id}','pending')">↩️ إعادة للانتظار</button>`:''}
+        <button class="btn btn-danger btn-sm" onclick="deleteLimoBk('${o.id}')">🗑️ حذف</button>
+      </div></div>`;
+  }).join('');
+}
+function setLimoBkStatus(id,status){
+  db.collection('limoBookings').doc(id).update({status, statusUpdatedAt:FVX.serverTimestamp()})
+    .then(()=>showToast('تم تحديث الحالة')).catch(e=>showToast('خطأ: '+e.message));
+}
+function deleteLimoBk(id){
+  if(!confirm('حذف هذا الحجز نهائيًا؟')) return;
+  db.collection('limoBookings').doc(id).delete().then(()=>showToast('تم الحذف')).catch(e=>showToast('خطأ: '+e.message));
+}
+
+/* ===================== LIMO PRICES ===================== */
+let limoPrices = [];
+const LIMO_SECTIONS = {cairo:'🚐 ليموزين داخل القاهرة 2026', gov:'🛣️ ليموزين المحافظات داخل مصر 2026'};
+const LIMO_SEED = [
+ ['cairo','ليموزين من مطار القاهرة إلى مدينة نصر أو مصر الجديدة',750,900,1400],
+ ['cairo','ليموزين من مطار القاهرة إلى وسط البلد أو التجمع الخامس أو المعادي',900,1100,1500],
+ ['cairo','ليموزين من مطار القاهرة إلى الهرم أو 6 اكتوبر أو العبور والشروق',1100,1300,1700],
+ ['gov','من الاسكندرية إلى مطار القاهرة',1700,2000,3500],
+ ['gov','من الاسكندرية إلى بورسعيد أو العكس',2500,3200,5000],
+ ['gov','من الاسكندرية إلى الاسماعيلية أو العكس',3000,4800,6500],
+ ['gov','من الاسكندرية إلى العين السخنة أو العكس',3000,4800,6500],
+ ['gov','من القاهرة إلى مارينا أو العكس',2500,3600,5500],
+ ['gov','من القاهرة إلى سيدي عبد الرحمن أو العكس',2650,4000,6000],
+ ['gov','من القاهرة إلى مطروح أو العكس',4400,4750,5800]
+];
+
+function listenToLimoPrices(){
+  db.collection('limoPrices').onSnapshot(snap=>{
+    limoPrices = [];
+    snap.forEach(d=> limoPrices.push({id:d.id, ...d.data()}));
+    limoPrices.sort((a,b)=> (a.order||0)-(b.order||0));
+    renderLimoPrices();
+  }, err=> console.warn('limoPrices:', err.message));
+}
+
+function renderLimoPrices(){
+  const box = document.getElementById('limoContainer');
+  if(!box) return;
+  if(!limoPrices.length){
+    box.innerHTML = `<div class="card limo-empty"><div class="big">🚐</div><p style="margin-bottom:14px;">لا توجد أسعار بعد</p>
+      <button class="btn btn-gold" onclick="seedLimoPrices()">⬇️ استيراد أسعار 2026</button></div>`;
+    return;
+  }
+  box.innerHTML = Object.keys(LIMO_SECTIONS).map(sec=>{
+    const rows = limoPrices.filter(r=> (r.section||'cairo')===sec);
+    if(!rows.length) return '';
+    const cell = v=> `<td class="limo-price">${fmt(v)}<small>ج.م</small></td>`;
+    return `<div class="limo-card"><h3>${LIMO_SECTIONS[sec]}</h3><div class="limo-wrap"><table class="limo-tbl">
+      <thead><tr><th>الرحلة</th><th>سيدان</th><th>ميني فان</th><th>فان</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>`<tr class="${r.active===false?'off':''}"><td>${escapeHtml(r.route||'')}${r.active===false?' <small style="color:var(--red)">(مخفية)</small>':''}</td>
+        ${cell(r.sedan)}${cell(r.minivan)}${cell(r.van)}
+        <td class="limo-act"><button class="btn btn-outline btn-sm" onclick="openLimoModal('${r.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteLimo('${r.id}')">🗑️</button></td></tr>`).join('')}
+      </tbody></table></div></div>`;
+  }).join('');
+}
+
+function openLimoModal(id){
+  const r = id ? limoPrices.find(x=>x.id===id) : null;
+  document.getElementById('limoModalTitle').textContent = r ? 'تعديل الرحلة' : 'إضافة رحلة';
+  document.getElementById('limoId').value = r ? r.id : '';
+  document.getElementById('limoSection').value = r ? (r.section||'cairo') : 'cairo';
+  document.getElementById('limoRoute').value = r ? (r.route||'') : '';
+  document.getElementById('limoSedan').value = r ? (r.sedan||'') : '';
+  document.getElementById('limoMinivan').value = r ? (r.minivan||'') : '';
+  document.getElementById('limoVan').value = r ? (r.van||'') : '';
+  document.getElementById('limoActive').checked = r ? r.active!==false : true;
+  document.getElementById('limoModalOverlay').classList.add('active');
+}
+
+function saveLimo(){
+  const id = document.getElementById('limoId').value;
+  const route = document.getElementById('limoRoute').value.trim();
+  const n = i=> Math.max(0, Number(document.getElementById(i).value)||0);
+  if(!route){ showToast('من فضلك أدخل اسم الرحلة'); return; }
+  const payload = {section:document.getElementById('limoSection').value, route,
+    sedan:n('limoSedan'), minivan:n('limoMinivan'), van:n('limoVan'), active:document.getElementById('limoActive').checked};
+  let p;
+  if(id) p = db.collection('limoPrices').doc(id).update(payload);
+  else { payload.order = (limoPrices.reduce((m,r)=>Math.max(m,r.order||0),0))+1; payload.createdAt = FVX.serverTimestamp(); p = db.collection('limoPrices').add(payload); }
+  p.then(()=>{ closeModal('limoModalOverlay'); showToast('تم حفظ السعر'); }).catch(e=>showToast('خطأ: '+e.message));
+}
+
+function deleteLimo(id){
+  const r = limoPrices.find(x=>x.id===id); if(!r) return;
+  if(!confirm('حذف الرحلة "'+r.route+'"؟')) return;
+  db.collection('limoPrices').doc(id).delete().then(()=>showToast('تم الحذف')).catch(e=>showToast('خطأ: '+e.message));
+}
+
+function seedLimoPrices(){
+  const batch = db.batch();
+  LIMO_SEED.forEach((x,i)=>{
+    batch.set(db.collection('limoPrices').doc(), {section:x[0], route:x[1], sedan:x[2], minivan:x[3], van:x[4], active:true, order:i+1, createdAt:FVX.serverTimestamp()});
+  });
+  batch.commit().then(()=>showToast('تم استيراد الأسعار')).catch(e=>showToast('خطأ: '+e.message));
+}
+
+function copyLimoPrices(){
+  const rows = limoPrices.filter(r=>r.active!==false);
+  if(!rows.length){ showToast('لا توجد أسعار للنسخ'); return; }
+  let t = '*Shabara Motors — أسعار الليموزين*\n';
+  Object.keys(LIMO_SECTIONS).forEach(sec=>{
+    const g = rows.filter(r=>(r.section||'cairo')===sec); if(!g.length) return;
+    t += '\n*'+LIMO_SECTIONS[sec].replace(/^\S+\s/,'')+'*\n';
+    g.forEach(r=>{ t += '\n'+r.route+'\nسيدان: '+fmt(r.sedan)+' | ميني فان: '+fmt(r.minivan)+' | فان: '+fmt(r.van)+' جنيه\n'; });
+  });
+  const done = ()=>showToast('تم نسخ الأسعار، الصقها في واتساب');
+  if(navigator.clipboard) navigator.clipboard.writeText(t).then(done).catch(()=>showToast('تعذر النسخ'));
+  else { const a=document.createElement('textarea'); a.value=t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); done(); }
 }
 
 /* ===================== TOAST ===================== */
@@ -4366,7 +4630,7 @@ function startDemo(){
   cs.style.cursor='pointer'; cs.onclick=()=>{ localStorage.setItem('carapp_skip_demo','1'); location.reload(); };
   switchView('dashboard');
   listenToItems(); listenToMerchantTxs(); listenToArchivedMerchantTxs();
-  listenToStockMovements(); listenToMerchantProfiles(); listenToSaleEntries(); listenToOrders();
+  listenToStockMovements(); listenToMerchantProfiles(); listenToSaleEntries(); listenToOrders(); listenToLimoPrices(); listenToLimoBookings();
 }
 function startDemoFromSetup(){ localStorage.removeItem('carapp_skip_demo'); startDemo(); }
 
@@ -4382,6 +4646,11 @@ function startDemoFromSetup(){ localStorage.removeItem('carapp_skip_demo'); star
   const saleDateEl = document.getElementById('saleDate');
   if(saleDateEl) saleDateEl.value = today;
 })();
+</script>
+<script>
+if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
 </script>
 </body>
 </html>
